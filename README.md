@@ -1,11 +1,20 @@
 # Harness Development Kit
 
-TypeScript constructs that synthesize [Harness.io](https://www.harness.io/) pipeline YAML — the CDK pattern for CI/CD pipelines.
+TypeScript constructs that synthesize [Harness.io](https://www.harness.io/) pipeline YAML.
+
+Instead of hand-writing Harness pipeline YAML, you compose a typed construct tree
+— `Pipeline` → `Stage` → `Step` — and call `synth()` to render valid Harness YAML.
+The construct tree is modeled directly on the [Harness v0 pipeline schema][schema],
+so field names and shapes match what Harness expects.
+
+[schema]: https://raw.githubusercontent.com/harness/harness-schema/main/v0/pipeline.json
 
 ## Quick Start
 
 ```ts
-import { CustomStage, Pipeline, ShellScriptStep } from "harness-development-kit";
+import { Pipeline } from "./src/constructs/pipeline.js";
+import { CustomStage } from "./src/constructs/custom-stage.js";
+import { ShellScriptStep } from "./src/constructs/shell-script-step.js";
 
 const pipeline = new Pipeline({
   name: "MyPipeline",
@@ -24,160 +33,133 @@ pipeline.addStage(
 console.log(pipeline.synth()); // prints Harness pipeline YAML
 ```
 
-## Motivation
-
-Harness pipelines are defined as YAML. This library lets you write them as TypeScript using a CDK-inspired API:
-
-- **`Pipeline`** — top-level construct (like `App`)
-- **`Stage`** — logical grouping (like `Stack`)
-- **`Step`** — individual actions (like `Construct`)
-- **`synth()`** — renders to Harness pipeline YAML
-
-Every construct has `bind()`, `validate()`, and `toJson()` — the same lifecycle as CDK.
-
-## Installation
+Run it:
 
 ```sh
-npm install harness-development-kit
+npm install
+npx tsx example.ts
 ```
 
-## High-Level Constructs
+> **Note on imports.** The construct barrel lives at
+> [`src/constructs/index.ts`](src/constructs/index.ts). The package root
+> (`src/index.ts`) is not yet wired up — see [Status](#status) — so import from
+> the construct files (or the barrel) directly, as the examples above do.
 
-These wrap multiple low-level steps into a single stage item:
+## Model
 
-| Construct | What it renders |
-|---|---|
-| `CdkDeploy` | Clone → (optional Diff) → Deploy (containerized step group) |
-| `TerraformApply` | Apply (or Plan + Apply grouped) |
-
-### CDK Deployment
-
-```ts
-import { App, Stack } from "aws-cdk-lib";
-import { Bucket } from "aws-cdk-lib/aws-s3";
-import { CdkDeploy, CustomStage, Pipeline } from "harness-development-kit";
-
-const app = new App();
-const storage = new StorageStack(app, "Storage");
-
-const pipeline = new Pipeline({
-  name: "StorageService",
-  projectIdentifier: "default_project",
-  repository: { connectorRef: "github", name: "my-app" },
-  runtime: {
-    connectorRef: "k8s_cluster",
-    namespace: "harness-builds",
-    serviceAccountName: "cdk-deployer",
-  },
-  delegateSelectors: ["cdk-delegate"],
-  cdk: {
-    registryConnectorRef: "dockerhub",
-    accountId: "111122223333",
-    region: "us-east-1",
-  },
-});
-
-pipeline.addStage(
-  new CustomStage({ name: "Prod" }).addStep(
-    new CdkDeploy({ stacks: [storage], diff: true }),
-  ),
-);
-
-console.log(pipeline.synth());
-```
-
-`CdkDeploy` automatically builds a containerized step group with:
-
-1. `GitCloneStep` — clones the repository
-2. (optional) `AwsCdkDiffStep` — runs `cdk diff`
-3. `AwsCdkDeployStep` — runs `cdk deploy`
-
-Pipeline-level `repository`, `runtime`, `delegateSelectors`, and `cdk` config are inherited by every `CdkDeploy`, with per-step overrides available via props.
-
-### Terraform Apply
-
-```ts
-const pipeline = new Pipeline({
-  projectIdentifier: "default_project",
-  repository: { connectorRef: "github", name: "infra", appPath: "terraform" },
-});
-
-pipeline.addStage(
-  new CustomStage({ name: "Deploy" }).addStep(
-    new TerraformApply({ plan: true }),
-  ),
-);
-```
-
-`TerraformApply` with `plan: true` groups a `TerraformPlanStep` and `TerraformApplyStep` together. Terraform steps run directly on the delegate — no runtime cluster is required.
-
-## Low-Level Steps
-
-| Step | Type | Containerized? | Description |
-|---|---|---|---|
-| `ShellScriptStep` | `ShellScript` | No | Inline shell script (Bash, PowerShell, Pwsh, Sh) |
-| `GitCloneStep` | `GitClone` | Yes | Clone a repository into the step group workspace |
-| `WaitStep` | `Wait` | No | Pause the pipeline (e.g. bake period) |
-| `AwsCdkBootstrapStep` | `AwsCdkBootstrap` | Yes | Run `cdk bootstrap` |
-| `AwsCdkSynthStep` | `AwsCdkSynth` | Yes | Run `cdk synth` |
-| `AwsCdkDiffStep` | `AwsCdkDiff` | Yes | Run `cdk diff` |
-| `AwsCdkDeployStep` | `AwsCdkDeploy` | Yes | Run `cdk deploy` |
-| `TerraformPlanStep` | `TerraformPlan` | No | Run `terraform plan` |
-| `TerraformApplyStep` | `TerraformApply` | No | Run `terraform apply` |
-| `TerraformDestroyStep` | `TerraformDestroy` | No | Run `terraform destroy` |
-
-## API Reference
-
-### Pipeline
-
-```ts
-new Pipeline({
-  name: "MyPipeline",
-  projectIdentifier: "default_project",       // required
-  identifier?: "My_Pipeline",                   // auto-derived from name
-  orgIdentifier?: "default",
-  description?: "Optional description",
-  tags?: { env: "prod" },
-  stages?: Stage[],
-  repository?: RepoProps,                       // shared by containerized steps
-  runtime?: KubernetesInfraProps,               // where containers run
-  delegateSelectors?: string[],                 // delegate agent tags
-  cdk?: CdkDefaults,                            // CDK config inherited by CdkDeploy
-});
-```
+The construct tree mirrors the Harness schema hierarchy. Every construct exposes
+the same lifecycle:
 
 | Method | Description |
 |---|---|
-| `addStage(stage)` | Add a stage (returns `this` for chaining) |
-| `validate()` | Returns validation errors (empty if valid) |
-| `synth()` | Validates and renders to Harness pipeline YAML (throws on error) |
+| `toJson()` | Renders this construct's schema object (e.g. a `{ stage: ... }` entry). |
+| `validate()` | Returns a list of problems; empty when valid. Recurses into children. |
+| `synth()` | *(`Pipeline` only)* Validates, then renders the whole pipeline to YAML. Throws if invalid. |
 
-### Stage
+The hierarchy:
 
-| Class | Stage Type | Description |
+- **`Pipeline`** — the top-level `{ pipeline: { ... } }` document. Holds stages.
+- **`Stage`** (abstract) — a `- stage:` entry. Concrete types: `CustomStage`,
+  `ApprovalStage`, `DeploymentStage`, `CIStage`.
+- **`Step`** (abstract) — a `{ step: { ... } }` execution item. Many concrete types (below).
+- **`StepGroup`** / **`ParallelGroup`** — containers that group steps (sequential
+  group with its own identifier, or a concurrent `parallel` block).
+
+Identifiers are auto-derived from the display `name` (`"My Stage"` → `"My_Stage"`)
+unless you pass an explicit `identifier`. Validation enforces the Harness
+identifier rules and rejects duplicate identifiers within a scope.
+
+## Stages
+
+| Construct | Type | Purpose |
 |---|---|---|
-| `CustomStage` | `Custom` | A sequence of execution items with no infrastructure attached |
+| `CustomStage` | `Custom` | A plain sequence of execution items — no service/infrastructure attached. |
+| `ApprovalStage` | `Approval` | A gate: manual (`HarnessApproval`) or Jira/ServiceNow/custom approval steps. |
+| `DeploymentStage` | `Deployment` | Deploys a service to an environment (single-service / single-environment path). |
+| `CIStage` | `CI` | Builds and tests code on Harness Cloud or a self-managed cluster. |
+
+Every stage takes shared `StageProps` (`name`, `identifier?`, `description?`,
+`tags?`, `variables?`, `when?`, `failureStrategies?`, `delegateSelectors?`,
+`strategy?`, `timeout?`) plus type-specific fields.
+
+### Deployment stage
 
 ```ts
-new CustomStage({ name: "Build" })
-  .addStep(new ShellScriptStep({ script: "..." }))
-  .addStep(new CdkDeploy({ stacks: [...] }));
+import { DeploymentStage } from "./src/constructs/deployment-stage.js";
+import { K8sRollingDeployStep } from "./src/constructs/kubernetes-steps.js";
+
+new DeploymentStage({
+  name: "Deploy Prod",
+  deploymentType: "Kubernetes",
+  service: { serviceRef: "my_service" },
+  environment: {
+    environmentRef: "prod",
+    infrastructureDefinitions: [{ identifier: "prod_k8s" }],
+  },
+}).addStep(new K8sRollingDeployStep({ name: "Rollout" }));
 ```
 
-### Step Group
+### CI stage
 
 ```ts
-new StepGroup({
-  name: "Deploy",
-  kubernetesInfra: {
+import { CIStage } from "./src/constructs/ci-stage.js";
+import { RunStep } from "./src/constructs/ci-steps.js";
+
+// Harness Cloud (hosted machines)
+new CIStage({
+  name: "Build",
+  platform: { os: "Linux", arch: "Amd64" },
+  runtime: { type: "Cloud" },
+}).addStep(new RunStep({ name: "Test", command: "npm test" }));
+
+// or self-managed Kubernetes
+new CIStage({
+  name: "Build",
+  infrastructure: {
+    type: "KubernetesDirect",
     connectorRef: "k8s_cluster",
     namespace: "harness-builds",
-    serviceAccountName: "cdk-deployer",  // IRSA support
   },
-  sharedPaths: ["/shared"],               // cross-step workspace sharing
-  steps: [...],
-});
+}).addStep(new RunStep({ name: "Test", command: "npm test" }));
 ```
+
+## Steps
+
+Every step takes shared `StepProps` (`name`, `identifier?`, `description?`,
+`timeout?`, `when?`, `failureStrategies?`, `strategy?`, `enforce?`) plus a
+type-specific `spec`.
+
+**General / utility**
+
+| Step | Type |
+|---|---|
+| `ShellScriptStep` | `ShellScript` |
+| `WaitStep` | `Wait` |
+| `HttpStep` | `Http` |
+| `EmailStep` | `Email` |
+| `BarrierStep` | `Barrier` |
+| `QueueStep` | `Queue` |
+| `PolicyStep` | `Policy` |
+
+**Approval** — `HarnessApprovalStep`, `JiraApprovalStep`, `ServiceNowApprovalStep`, `CustomApprovalStep`
+
+**Feature Flag** — `FlagConfigurationStep`
+
+**Kubernetes** (all 17) — `K8sRollingDeployStep`, `K8sRollingRollbackStep`,
+`K8sApplyStep`, `K8sDeleteStep`, `K8sScaleStep`, `K8sBlueGreenDeployStep`,
+`K8sCanaryDeployStep`, `K8sCanaryDeleteStep`, `K8sBGSwapServicesStep`,
+`K8sDiffStep`, `K8sDryRunStep`, `K8sPatchStep`, `K8sRolloutStep`,
+`K8sTrafficRoutingStep`, `K8sBlueGreenStageScaleDownStep`,
+`K8sBlueGreenStageScaleUpStep`, `K8sProgressiveCanaryRollbackStep`
+
+**AWS CDK** — `AwsCdkBootstrapStep`, `AwsCdkSynthStep`, `AwsCdkDiffStep`, `AwsCdkDeployStep`, `AwsCdkDestroyStep`, `AwsCdkRollbackStep`
+
+**CI build/test** — `RunStep`, `RunTestsStep`, `PluginStep`, `BackgroundStep`, `GitCloneStep`, `ActionStep`, `BitriseStep`
+
+**Terraform** — `TerraformPlanStep`, `TerraformApplyStep`, `TerraformDestroyStep`, `TerraformRollbackStep`
+
+See [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md) for the full
+inventory, including step families not yet implemented.
 
 ### ShellScriptStep
 
@@ -185,134 +167,114 @@ new StepGroup({
 new ShellScriptStep({
   name: "Build",
   script: 'echo "Building..."',
-  shell: "Bash",                          // | "PowerShell" | "Pwsh" | "Sh"
-  timeout: "10m",                         // default
+  shell: "Bash",                          // "Bash" | "PowerShell"; default "Bash"
+  timeout: "10m",
   environmentVariables: [{ name: "NODE_ENV", type: "String", value: "production" }],
-  outputVariables: [{ name: "VERSION", type: "String" }],
+  outputVariables: [{ name: "VERSION", type: "String", value: "v" }],
 });
 ```
 
 ### WaitStep
 
 ```ts
-new WaitStep({
-  name: "Bake",
-  duration: "12h",                        // e.g. "30m", "1d"
-});
+new WaitStep({ name: "Bake", duration: "12h" });   // e.g. "30m", "1d"
 ```
 
-### Terraform Steps
+### Terraform steps
 
 ```ts
-// Plan (stores encrypted plan for later Apply)
+import {
+  TerraformPlanStep,
+  TerraformApplyStep,
+} from "./src/constructs/terraform-steps.js";
+
+// Plan (stores an encrypted plan for a later Apply)
 new TerraformPlanStep({
-  provisionerIdentifier: "my-infra",
-  config: {
+  name: "Plan",
+  provisionerIdentifier: "my_infra",
+  command: "Apply",
+  secretManagerRef: "harness_secret_manager",
+  configuration: {
     configFiles: {
       type: "Github",
       connectorRef: "github",
-      repoName: "infra",
+      gitFetchType: "Branch",
       branch: "main",
+      repoName: "infra",
       folderPath: "terraform",
     },
-    varFiles: [{ identifier: "prod", content: "..." }],
-    backendConfig: "...",
-    targets: ["aws_s3_bucket.data"],
-    workspace: "prod",
   },
 });
 
-// Apply (inherits from prior plan)
+// Apply, inheriting the prior plan
 new TerraformApplyStep({
-  provisionerIdentifier: "my-infra",
-  // omit config to inherit from Plan
-});
-
-// Destroy (inherits from prior Plan or Apply)
-new TerraformDestroyStep({
-  inheritFrom: "Plan",
+  name: "Apply",
+  provisionerIdentifier: "my_infra",
+  configurationType: "InheritFromPlan",
 });
 ```
 
-## Common Patterns
+## Value objects
 
-### Multi-Environment Promotion
+Several schema blocks are modeled as typed value objects (an interface/union plus
+a `render*` function) rather than loose records, so they validate at the type level:
+
+| Value object | Models |
+|---|---|
+| `NGVariable` | Pipeline/stage/step-group variables (`String` / `Secret` / `Number`). |
+| `StepWhen` / `StageWhen` | Conditional execution (`when`). |
+| `FailureStrategy` | Failure-handling rules. |
+| `Strategy` | Matrix / parallelism / repeat looping. |
+| `NotificationRule` | Pipeline notifications and channels. |
+| `FlowControl` / `Barrier` | Barrier / flow-control config. |
+| `TemplateLink` | References to Harness templates. |
+| `PolicyConfig` | OPA policy enforcement (`enforce`). |
+| `DeploymentService` / `DeploymentEnvironment` / `InfrastructureDefinition` | Deployment stage targets. |
+
+## Grouping steps
 
 ```ts
-const pipeline = new Pipeline({
-  name: "StorageService",
-  projectIdentifier: "default_project",
-  repository: { connectorRef: "github", name: "my-app" },
-  runtime: { connectorRef: "k8s_cluster", namespace: "harness-builds" },
-  cdk: { registryConnectorRef: "dockerhub", accountId: "111122223333" },
+import { StepGroup } from "./src/constructs/step-group.js";
+import { ParallelGroup } from "./src/constructs/parallel-group.js";
+
+// Sequential, named group (has its own identifier; can carry when/failureStrategies)
+new StepGroup({
+  name: "Deploy",
+  steps: [stepA, stepB],
 });
 
-pipeline
-  .addStage(new CustomStage({ name: "Alpha" }).addStep(
-    new CdkDeploy({ stacks: [alpha] }).addStep(new WaitStep({ duration: "12h" })),
-  ))
-  .addStage(new CustomStage({ name: "Beta" }).addStep(
-    new CdkDeploy({ stacks: [beta] }).addStep(new WaitStep({ duration: "12h" })),
-  ))
-  .addStage(new CustomStage({ name: "Prod" }).addStep(
-    new CdkDeploy({ stacks: [prod], diff: true }),
-  ));
+// Concurrent block (renders `{ parallel: [...] }`; no identifier of its own)
+new ParallelGroup({ steps: [stepA, stepB] });
 ```
 
-### Pipeline-Level Defaults with Per-Step Overrides
-
-```ts
-const pipeline = new Pipeline({
-  repository: { connectorRef: "github", name: "my-app" },
-  runtime: { connectorRef: "k8s_cluster", namespace: "builds" },
-  cdk: { registryConnectorRef: "dockerhub", accountId: "111122223333" },
-});
-
-pipeline.addStage(
-  new CustomStage({ name: "Override" }).addStep(
-    new CdkDeploy({
-      stacks: [someStack],
-      repository: { connectorRef: "gitlab", name: "some-app" }, // overrides pipeline
-      runtime: { connectorRef: "openshift", namespace: "other" }, // overrides pipeline
-      overrides: { region: "eu-west-1" }, // partial override of cdk defaults
-    }),
-  ),
-);
-```
-
-## CDK Parallel
-
-This library mirrors the AWS CDK architecture:
-
-| CDK | Harness Kit | Purpose |
-|---|---|---|
-| `App` | `Pipeline` | Top-level construct |
-| `Stack` | `Stage` | Logical grouping |
-| `Construct` | `Step` / `ExecutionItem` | Reusable building block |
-| `synth()` | `synth()` | Render to output |
-| `bind(scope)` | `bind(context)` | Lazy resolution with shared config |
-| `CfnOutput` | `CfnOutput` | Stack output property |
-
-The key difference: CDK synthesizes *infrastructure* into CloudFormation; this library synthesizes *pipelines* into Harness YAML.
-
-## Running Examples
-
-```sh
-# Basic pipeline
-npx tsx example.ts
-
-# CDK multi-env promotion
-npx tsx example-cdk.ts
-```
+Groups are themselves execution items, so they nest and can be added to any stage
+via `addStep()`.
 
 ## Development
 
 ```sh
 npm install
-npm run build    # TypeScript compilation
-npm test         # Vitest tests
+npm run typecheck   # tsc, no emit
+npm run build       # tsc -p tsconfig.build.json -> dist/
+npm test            # vitest
+npx tsx example.ts  # run the sample pipeline
 ```
+
+## Status
+
+This is an evolving, schema-driven construct tree. Coverage so far:
+**4 of 12 stage types** and a growing set of step families (general, approval,
+Kubernetes, AWS CDK, CI, Terraform, feature flag). The remaining step families
+(Helm, ECS, ASG, Azure, GCP, Lambda/SAM, GitOps, STO scanners, and more) are
+tracked in [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md).
+
+Known gaps:
+
+- The package root (`src/index.ts`) is empty; the construct barrel at
+  `src/constructs/index.ts` is the entry point today. Consolidating them is
+  blocked on a name clash with a legacy tree and tracked in `CONSTRUCTS.md`.
+- No test suite yet — round-trip render tests are planned.
 
 ## License
 
-ISC
+MIT — see [LICENSE](LICENSE).

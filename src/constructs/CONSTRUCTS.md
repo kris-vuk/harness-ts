@@ -55,7 +55,7 @@ Still pass-through `Record` on the bases: `runMode`, `properties`,
 | `Custom` | `CustomStage` | ✅ |
 | `Approval` | `ApprovalStage` | ✅ |
 | `Deployment` | `DeploymentStage` | ✅ |
-| `CI` | — | ⬜ |
+| `CI` | `CIStage` | ✅ |
 | `SecurityTests` | — | ⬜ |
 | `FeatureFlag` | — | ⬜ |
 | `Pipeline` | — | ⬜ |
@@ -131,6 +131,27 @@ Still pass-through `Record` on the bases: `runMode`, `properties`,
 | --- | --- | --- |
 | `FlagConfigurationStep` | `FlagConfiguration` | ✅ |
 
+**CI build/test** (`ci-steps.ts`) — 7 core steps ✅
+
+| Step | Type |
+| --- | --- |
+| `RunStep` | `Run` |
+| `RunTestsStep` | `RunTests` |
+| `PluginStep` | `Plugin` |
+| `BackgroundStep` | `Background` |
+| `GitCloneStep` | `GitClone` |
+| `ActionStep` | `Action` |
+| `BitriseStep` | `Bitrise` |
+
+**Terraform** (`terraform-steps.ts`) — 4 core steps ✅ (shared `TerraformExecutionConfig` + `GitStore`/`TerraformVarFile`/`TerraformBackendConfig`/`TerraformCliFlag` value objects; env vars reuse `NGVariable`)
+
+| Step | Type |
+| --- | --- |
+| `TerraformApplyStep` | `TerraformApply` |
+| `TerraformPlanStep` | `TerraformPlan` |
+| `TerraformDestroyStep` | `TerraformDestroy` |
+| `TerraformRollbackStep` | `TerraformRollback` |
+
 ### ⬜ Not started — step families
 
 Roughly prioritized; counts are approximate distinct step types. Expand a
@@ -139,7 +160,7 @@ family into a per-step checklist when work on it begins.
 | Family | ~Count | Notes |
 | --- | --- | --- |
 | Helm | 7 | `HelmDeploy`, `HelmRollback`, `HelmDelete`, `HelmBGDeploy`, `HelmBlueGreenSwapStep`, `HelmCanary{Deploy,Delete}` |
-| Terraform / Terragrunt / provisioners | ~15 | `Terraform{Apply,Plan,Destroy,Rollback}`, `TerraformCloud{Run,Rollback}`, `Terragrunt*`, `ShellScriptProvision`, `CreateResource` |
+| Terraform/Terragrunt (remaining) | ~11 | core Terraform 4 done (`terraform-steps.ts`); left: `TerraformCloud{Run,Rollback}`, `Terragrunt{Apply,Plan,Destroy,Rollback}`, `ShellScriptProvision`, `CreateResource` |
 | ECS | 13 | `Ecs{RollingDeploy,RollingRollback,CanaryDeploy,CanaryDelete,Scale,RunTask,ServiceSetup,UpgradeContainer,BasicRollback}`, `EcsBlueGreen*` |
 | ASG | 13 | `Asg{Setup,RollingDeploy,RollingRollback,Canary*,BlueGreen*,Scale,ShiftTraffic,SteadyState,PhasedDeploy,Rollback}` |
 | Azure | 13 | ARM/Blueprint, WebApp slots, Functions, Container Apps |
@@ -152,7 +173,7 @@ family into a per-step checklist when work on it begins.
 | GitOps | ~10 | `GitOps*`, `UpdateGitOpsApp`, `MergePR`, `RevertPR`, `DirectPush` |
 | Jira / ServiceNow create-update | 5 | `Jira{Create,Update}`, `ServiceNow{Create,Update,ImportSet}` |
 | Salesforce | 11 | `Salesforce*` |
-| CI build/push | ~9 | `Run`, `RunTests`, `Plugin`, `Background`, `Action`, `Bitrise`, `GitClone`, `Container` |
+| CI build/push (remaining) | ~15 | core 7 done (`ci-steps.ts`); left: `BuildAndPush{Docker,ECR,GCR,GAR,ACR}`, `RestoreCache*`/`SaveCache*` (S3/GCS/Azure), `*Upload`/`UploadTo*` (S3/GCS/Artifactory/Har) |
 | STO scanners | ~54 | under `security` container; per-tool step types |
 | SSCA | ~12 | `Ssca*`, `CdSsca*`, `SlsaVerification`, `EnforceAttestation` |
 | DB DevOps | 5 | `DBSchema{Apply,Rollback}`, `DBTestAndPreview`, `FlywayCommand`, `LiquibaseCommand` |

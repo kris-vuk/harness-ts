@@ -1,4 +1,7 @@
-import { CustomStage, Pipeline, ShellScriptStep } from "./src/index.js";
+import { CustomStage } from "./src/constructs/custom-stage.js";
+import { Pipeline } from "./src/constructs/pipeline.js";
+import { ShellScriptStep } from "./src/constructs/shell-script-step.js";
+
 
 const pipeline = new Pipeline({
   name: "TestPipeline",

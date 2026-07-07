@@ -9,15 +9,35 @@
     "build": "tsc -p tsconfig.build.json",
     "prepack": "tsc -p tsconfig.build.json"
   },
-  "keywords": [],
+  "keywords": [
+    "harness",
+    "harness.io",
+    "pipeline",
+    "ci-cd",
+    "yaml",
+    "constructs",
+    "infrastructure-as-code"
+  ],
   "author": "Kris V",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kris-vuk/harness-ts.git"
+  },
+  "homepage": "https://github.com/kris-vuk/harness-ts#readme",
+  "bugs": {
+    "url": "https://github.com/kris-vuk/harness-ts/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
+    "ajv": "^8.20.0",
     "constructs": "^10.6.0",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",

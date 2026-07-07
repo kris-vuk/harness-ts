@@ -71,6 +71,11 @@ export {
   type PayloadCondition,
 } from "./github-push-trigger.js";
 export {
+  PipelineGitConfig,
+  type PipelineGitConfigProps,
+  type PipelineGitFetchType,
+} from "./pipeline-git-config.js";
+export {
   type TemplateLink,
   renderTemplateLink,
 } from "./template-link.js";

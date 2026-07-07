@@ -42,7 +42,9 @@ npx tsx example.ts
 > ([`src/index.ts`](src/index.ts)), which forwards the construct barrel at
 > [`src/constructs/index.ts`](src/constructs/index.ts). You can import named
 > constructs from either. The examples below import from individual construct
-> files to make each type's home obvious.
+> files to make each type's home obvious. **If you installed this from npm,**
+> replace the `./src/...` paths with the package name — e.g.
+> `import { Pipeline } from "harness-ts";`.
 
 ## Model
 
@@ -280,6 +282,99 @@ By default it passes the pushed branch into the run's CI codebase
 is matched. The trigger and the pipeline are synthesized to separate YAML
 documents.
 
+## Writing YAML to disk on build (`App`)
+
+`pipeline.synth()` returns a YAML **string**. To turn a set of resources into
+files on every build — one `.harness/<identifier>.yaml` per pipeline/trigger —
+use `App` instead of writing files yourself:
+
+```ts
+// harness.ts
+import { App } from "./src/index.js"; // or "harness-ts" if installed from npm
+import { pipeline, trigger } from "./my-pipeline.js";
+
+new App({ outdir: ".harness" }) // outdir defaults to ".harness"
+  .add(pipeline)                // -> .harness/<pipeline identifier>.yaml
+  .add(trigger)                 // -> .harness/<trigger identifier>.yaml
+  .synth();
+```
+
+Wire it to an npm script:
+
+```jsonc
+// package.json
+"scripts": { "synth": "tsx harness.ts" }
+```
+
+`npm run synth` then writes one file per resource. `App` creates `outdir` if it
+doesn't exist and returns the absolute paths written. Notes:
+
+- **File name** defaults to the resource identifier; override per resource with
+  `app.add(pipeline, { fileName: "my_pipeline" })`.
+- **Validation first.** Every resource is rendered (and therefore validated)
+  before anything is written, so an invalid pipeline throws and leaves no
+  partial output.
+- **Collisions throw.** Two resources resolving to the same file is an error —
+  give one a distinct `fileName`.
+- `add()` accepts anything with an `identifier` and a `synth()` (a `Pipeline` or
+  a `GithubPushTrigger` today).
+
+## Storing the pipeline definition in git
+
+The constructs above describe *what the pipeline does*. Separately, you can
+declare *where the pipeline's own YAML lives* — the git repo that stores the
+pipeline definition itself, so Harness keeps its in-account copy in sync as that
+repo updates (Harness "Git Experience" / remote pipelines).
+
+> **This is the pipeline-definition repo, not a source/app repo.** A
+> `GithubPushTrigger` watches an application repo and *runs* the pipeline on
+> push. `PipelineGitConfig` points at the repo that holds the pipeline YAML and
+> governs how Harness *stores and syncs the definition*. They are unrelated and
+> can be used together.
+
+Git-sync metadata (`storeType: REMOTE`, connector, repo, branch, file path) is
+**not** part of the v0 pipeline document, so it isn't rendered by
+`pipeline.synth()`. Like a trigger, `PipelineGitConfig` is a separate resource
+that *references* a pipeline and renders that entity-level "git details" block:
+
+```ts
+import { PipelineGitConfig } from "./src/constructs/pipeline-git-config.js";
+
+const gitConfig = new PipelineGitConfig({
+  pipeline,                             // supplies the pipeline identifier
+  connectorRef: "github_conn",          // existing Git connector for the defs repo
+  repoName: "my-org/pipeline-defs",     // repo that stores the pipeline YAML
+  branch: "main",
+  filePath: ".harness/my_pipeline.yaml",
+});
+
+gitConfig.toGitDetails();
+// { storeType: "REMOTE", connectorRef: "github_conn",
+//   repoName: "my-org/pipeline-defs", branch: "main",
+//   filePath: ".harness/my_pipeline.yaml" }
+```
+
+Use `gitFetchType: "Commit"` with a `commitId` to pin a specific commit instead
+of tracking the branch tip.
+
+### The auto-update loop
+
+`PipelineGitConfig` produces the metadata; it does not move any bytes. Because
+`synth()` returns a YAML **string** (there is no output directory — the library
+never writes files), delivering the definition to the repo is a consumer step.
+The full loop:
+
+1. Compose the construct tree and run `npm run synth` (the [`App`](#writing-yaml-to-disk-on-build-app)
+   step above) to write `.harness/<identifier>.yaml`. Point `filePath` at that
+   same path.
+2. Commit/push the `.harness` file to the defs repo.
+3. Harness, having been told the pipeline is `REMOTE` (via `toGitDetails()` on a
+   create/import API call, or the UI), syncs its stored copy from that file when
+   the repo updates.
+
+So steps 1–2 are this library plus a `git commit`; step 3 is the one-time
+Harness create/import that registers the pipeline as remote.
+
 ## Development
 
 ```sh
@@ -300,7 +395,8 @@ tracked in [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md).
 
 Known gaps:
 
-- No test suite yet — round-trip render tests are planned.
+- Test coverage is early — schema-validation and render tests exist for a subset
+  of constructs; broader round-trip coverage is planned.
 
 ## License
 

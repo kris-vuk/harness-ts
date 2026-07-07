@@ -191,5 +191,5 @@ family into a per-step checklist when work on it begins.
 ## Cross-cutting TODO
 
 - [ ] **vitest specs** — round-trip render tests for the K8s family, `StepGroup`, and the value objects (nothing under test yet).
-- [ ] **Root-index consolidation** — wire `src/constructs` into `src/index.ts`; currently blocked because `Pipeline`/`Stage`/`Step` clash with the legacy `src/pipeline|stage|step` trees the root index still points at.
+- [x] **Root-index consolidation** — `src/index.ts` now re-exports the `src/constructs` barrel (`export * from "./constructs/index.js"`); the legacy `src/pipeline|stage|step` trees that caused the name clash are gone.
 - [x] Whole-repo `tsc` is green (the legacy `example*.ts` files that broke it have been removed); the `src/constructs` subtree typechecks clean. `tsconfig.json` still lists the removed `example*.ts` in `include` — harmless, but worth pruning.

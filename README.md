@@ -12,9 +12,7 @@ so field names and shapes match what Harness expects.
 ## Quick Start
 
 ```ts
-import { Pipeline } from "./src/constructs/pipeline.js";
-import { CustomStage } from "./src/constructs/custom-stage.js";
-import { ShellScriptStep } from "./src/constructs/shell-script-step.js";
+import { Pipeline, CustomStage, ShellScriptStep } from "./src/index.js";
 
 const pipeline = new Pipeline({
   name: "MyPipeline",
@@ -40,10 +38,11 @@ npm install
 npx tsx example.ts
 ```
 
-> **Note on imports.** The construct barrel lives at
-> [`src/constructs/index.ts`](src/constructs/index.ts). The package root
-> (`src/index.ts`) is not yet wired up — see [Status](#status) — so import from
-> the construct files (or the barrel) directly, as the examples above do.
+> **Note on imports.** Everything is re-exported from the package root
+> ([`src/index.ts`](src/index.ts)), which forwards the construct barrel at
+> [`src/constructs/index.ts`](src/constructs/index.ts). You can import named
+> constructs from either. The examples below import from individual construct
+> files to make each type's home obvious.
 
 ## Model
 
@@ -270,9 +269,6 @@ tracked in [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md).
 
 Known gaps:
 
-- The package root (`src/index.ts`) is empty; the construct barrel at
-  `src/constructs/index.ts` is the entry point today. Consolidating them is
-  blocked on a name clash with a legacy tree and tracked in `CONSTRUCTS.md`.
 - No test suite yet — round-trip render tests are planned.
 
 ## License

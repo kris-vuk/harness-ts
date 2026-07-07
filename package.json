@@ -1,0 +1,41 @@
+{
+  "name": "harness-development-kit",
+  "version": "0.1.0",
+  "description": "TypeScript constructs that synthesize Harness.io pipeline YAML",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "tsc -p tsconfig.build.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "aws-cdk-lib": "^2.261.0",
+    "constructs": "^10.6.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
+  }
+}

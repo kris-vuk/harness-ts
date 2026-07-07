@@ -1674,8 +1674,7 @@
                     "maxItems" : 256
                   }, {
                     "type" : "string",
-                    "pattern" : "(<\\+.+>.*)",
-                    "minLength" : null
+                    "pattern" : "(<\\+.+>.*)"
                   } ]
                 },
                 "delegateSelectors" : {
@@ -81883,8 +81882,7 @@
               "pattern" : "^(([1-9])+\\d+[s])|(((([1-9])+\\d*[mhwd])+([\\s]?\\d+[smhwd])*)|(<\\+input>.*)|(.*<\\+.*>.*)|(^$))$"
             },
             "type" : {
-              "type" : "string",
-              "enum" : [ ]
+              "type" : "string"
             },
             "when" : {
               "oneOf" : [ {
@@ -90338,8 +90336,7 @@
             "allOf" : [ {
               "$ref" : "#/definitions/pipeline/stages/cd/ServiceSpec"
             }, {
-              "type" : "object",
-              "properties" : null
+              "type" : "object"
             } ],
             "$schema" : "http://json-schema.org/draft-07/schema#",
             "properties" : {

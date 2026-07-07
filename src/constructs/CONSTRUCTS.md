@@ -199,8 +199,46 @@ family into a per-step checklist when work on it begins.
 
 ---
 
+## Testing new constructs
+
+Every new construct needs a unit test that validates its rendered output
+against the bundled Harness schema (`schema.json`). The helper in
+`tests/constructs/harness-schema.ts` compiles the ajv validator once and exposes
+`expectValidPipeline(pipeline)`. The pattern is: build a minimal pipeline
+containing the construct, then assert it validates.
+
+```ts
+import { CIStage, Pipeline, ShellScriptStep } from "../src/constructs/index.js";
+import { expectValidPipeline } from "./harness-schema.js";
+
+test("my step validates", () => {
+  const pipeline = new Pipeline({
+    name: "Test",
+    projectIdentifier: "p",
+    stages: [
+      new CIStage({
+        name: "Build",
+        platform: { os: "Linux", arch: "Amd64" },
+        runtime: { type: "Cloud" },
+        steps: [new ShellScriptStep({ name: "Run", script: "echo hi", timeout: "10m" })],
+      }),
+    ],
+  });
+  expectValidPipeline(pipeline);
+});
+```
+
+Notes:
+- The validator is built with ajv `{ strict: false, allowUnionTypes: true }` to
+  accept Harness's `discriminator` / `desc` / `format: int32` extensions.
+  Structural checks (required, type, enum, pattern) are still enforced.
+- `schema.json` had 3 nodes ajv's compiler rejects (an empty `enum`, a `null`
+  `minLength`, a `null` `properties`); these were removed as no-op edits. If the
+  schema is re-downloaded, re-apply them or the helper will throw at import.
+- Use `validateAgainstSchema(json)` for finer-grained assertions on errors.
+
 ## Cross-cutting TODO
 
-- [ ] **vitest specs** — round-trip render tests for the K8s family, `StepGroup`, and the value objects (nothing under test yet).
+- [x] **vitest specs** — schema-validation harness in place (`tests/constructs/harness-schema.ts`) with an example spec (`tests/constructs/pipeline.test.ts`). Still TODO: per-construct coverage for the K8s family, `StepGroup`, and the value objects.
 - [x] **Root-index consolidation** — `src/index.ts` now re-exports the `src/constructs` barrel (`export * from "./constructs/index.js"`); the legacy `src/pipeline|stage|step` trees that caused the name clash are gone.
 - [x] Whole-repo `tsc` is green (the legacy `example*.ts` files that broke it have been removed); the `src/constructs` subtree typechecks clean. `tsconfig.json` still lists the removed `example*.ts` in `include` — harmless, but worth pruning.

@@ -4,10 +4,11 @@
     "module": "Node16",
     "moduleResolution": "node16",
     "strict": true,
+    "resolveJsonModule": true,
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "example.ts", "example-cdk.ts"]
+  "include": ["src", "tests", "example.ts", "example-cdk.ts"]
 }

@@ -39,15 +39,14 @@ Typed replacements for the loose `Record<string, unknown>` fields (union/interfa
 | `StepWhen` / `StageWhen` | `when-condition.ts` | ✅ |
 | `FailureStrategy` + `FailureAction` | `failure-strategy.ts` | ✅ |
 | `Strategy` (matrix/parallelism/repeat) | `strategy.ts` | ✅ |
-| `Notifications` / notification channels | — | ⬜ |
-| `FlowControl` / `Barrier` config | — | ⬜ |
-| `TemplateLinkConfig` | — | ⬜ |
-| `PolicyConfig` (`enforce`) | — | ⬜ |
-| `Service` / `Environment` / `Infrastructure` | — | ⬜ |
+| `NotificationRule` / `NotificationChannel` / `PipelineEvent` | `notification.ts` | ✅ |
+| `FlowControl` / `Barrier` config | `flow-control.ts` | ✅ |
+| `TemplateLink` (`TemplateLinkConfig`) | `template-link.ts` | ✅ |
+| `PolicyConfig` (`enforce`) | `policy-config.ts` | ✅ |
+| `DeploymentService` / `DeploymentEnvironment` / `InfrastructureDefinition` | `deployment-target.ts` | ✅ |
 
-Still pass-through `Record` on the bases: `enforce`, `runMode`,
-`notificationRules`, `flowControl`, `properties`, `template`, `stepGroupInfra`,
-`platform`.
+Still pass-through `Record` on the bases: `runMode`, `properties`,
+`stepGroupInfra`, `platform`.
 
 ## Stages (12)
 
@@ -172,4 +171,4 @@ family into a per-step checklist when work on it begins.
 
 - [ ] **vitest specs** — round-trip render tests for the K8s family, `StepGroup`, and the value objects (nothing under test yet).
 - [ ] **Root-index consolidation** — wire `src/constructs` into `src/index.ts`; currently blocked because `Pipeline`/`Stage`/`Step` clash with the legacy `src/pipeline|stage|step` trees the root index still points at.
-- [ ] Whole-repo `tsc` is red only for pre-existing legacy reasons (root `src/index.ts` + `example*.ts`); the `src/constructs` subtree typechecks clean.
+- [x] Whole-repo `tsc` is green (the legacy `example*.ts` files that broke it have been removed); the `src/constructs` subtree typechecks clean. `tsconfig.json` still lists the removed `example*.ts` in `include` — harmless, but worth pruning.

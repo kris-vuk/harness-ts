@@ -6,14 +6,15 @@ import {
   renderFailureStrategy,
 } from "./failure-strategy.js";
 import { type Strategy, renderStrategy } from "./strategy.js";
+import { type PolicyConfig, renderPolicyConfig } from "./policy-config.js";
 
 /**
  * Properties common to every Harness step, mirroring `StepElementConfig` in
  * the Harness v0 pipeline schema. Each concrete step type additionally
  * contributes a type-specific `spec`.
  *
- * `when`, `failureStrategies`, and `strategy` are modeled by dedicated value
- * objects; `enforce` (`PolicyConfig`) remains a pass-through object for now.
+ * `when`, `failureStrategies`, `strategy`, and `enforce` are modeled by
+ * dedicated value objects.
  */
 export interface StepProps {
   /** Display name. */
@@ -30,7 +31,7 @@ export interface StepProps {
   /** Looping / matrix strategy (`StrategyConfig`). */
   strategy?: Strategy;
   /** Policy enforcement (`PolicyConfig`). */
-  enforce?: Record<string, unknown>;
+  enforce?: PolicyConfig;
 }
 
 /**
@@ -48,7 +49,7 @@ export abstract class Step implements ExecutionItem {
   readonly when?: StepWhen;
   readonly failureStrategies?: FailureStrategy[];
   readonly strategy?: Strategy;
-  readonly enforce?: Record<string, unknown>;
+  readonly enforce?: PolicyConfig;
 
   constructor(props: StepProps) {
     this.name = props.name;
@@ -93,7 +94,9 @@ export abstract class Step implements ExecutionItem {
         ...(this.strategy !== undefined && {
           strategy: renderStrategy(this.strategy),
         }),
-        ...(this.enforce !== undefined && { enforce: this.enforce }),
+        ...(this.enforce !== undefined && {
+          enforce: renderPolicyConfig(this.enforce),
+        }),
       },
     };
   }

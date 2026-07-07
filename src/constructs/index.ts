@@ -52,6 +52,36 @@ export {
   renderStrategy,
 } from "./strategy.js";
 export {
+  PIPELINE_EVENT_TYPES,
+  type PipelineEventType,
+  type PipelineEvent,
+  type NotificationChannel,
+  type NotificationRule,
+  renderNotificationRule,
+} from "./notification.js";
+export {
+  type Barrier,
+  type FlowControl,
+  renderFlowControl,
+} from "./flow-control.js";
+export {
+  type TemplateLink,
+  renderTemplateLink,
+} from "./template-link.js";
+export {
+  type PolicyConfig,
+  renderPolicyConfig,
+} from "./policy-config.js";
+export {
+  type DeploymentService,
+  type DeploymentEnvironment,
+  type InfrastructureDefinition,
+  renderDeploymentService,
+  renderDeploymentEnvironment,
+  renderInfrastructureDefinition,
+  validateDeploymentTarget,
+} from "./deployment-target.js";
+export {
   type ImagePullPolicy,
   type ResourceLimits,
   type ContainerResource,

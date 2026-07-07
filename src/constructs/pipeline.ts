@@ -1,6 +1,12 @@
 import { stringify } from "yaml";
 import { isValidIdentifier, toIdentifier } from "../identifier.js";
 import { type NGVariable, renderVariable } from "./ng-variable.js";
+import {
+  type NotificationRule,
+  renderNotificationRule,
+} from "./notification.js";
+import { type FlowControl, renderFlowControl } from "./flow-control.js";
+import { type TemplateLink, renderTemplateLink } from "./template-link.js";
 
 /**
  * A child that a {@link Pipeline} can render into its `stages` list — a stage,
@@ -20,10 +26,10 @@ export interface PipelineChild {
  * Properties of a Harness `pipeline`, mirroring the fields of
  * `definitions/pipeline/pipeline` in the Harness v0 pipeline schema.
  *
- * `variables` is modeled by the {@link NGVariable} value object; the other
- * structurally rich fields (`notificationRules`, `flowControl`, `template`,
- * `properties`) are accepted as pass-through objects for now; dedicated
- * constructs for them can be introduced later without changing this surface.
+ * `variables`, `notificationRules`, `flowControl`, and `template` are modeled
+ * by dedicated value objects; `properties` remains a pass-through object for
+ * now (a dedicated construct can be introduced later without changing this
+ * surface).
  */
 export interface PipelineProps {
   /** Display name. Schema pattern: `^[a-zA-Z_0-9-.][-0-9a-zA-Z_\s.]{0,127}$`. */
@@ -46,13 +52,13 @@ export interface PipelineProps {
   /** Pipeline-level `NGVariable` entries. */
   variables?: NGVariable[];
   /** Notification rules (`NotificationRules` entries). */
-  notificationRules?: Record<string, unknown>[];
-  /** Barrier / flow-control configuration. */
-  flowControl?: Record<string, unknown>;
+  notificationRules?: NotificationRule[];
+  /** Barrier / flow-control configuration (`flowControl`). */
+  flowControl?: FlowControl;
   /** Additional pipeline properties (e.g. `properties.ci.codebase`). */
   properties?: Record<string, unknown>;
   /** Reference to a pipeline template (`TemplateLinkConfig`). */
-  template?: Record<string, unknown>;
+  template?: TemplateLink;
   /** The stages that make up the pipeline. */
   stages?: PipelineChild[];
 }
@@ -73,10 +79,10 @@ export class Pipeline {
   readonly fixedInputsOnRerun?: boolean;
   readonly timeout?: string;
   readonly variables?: NGVariable[];
-  readonly notificationRules?: Record<string, unknown>[];
-  readonly flowControl?: Record<string, unknown>;
+  readonly notificationRules?: NotificationRule[];
+  readonly flowControl?: FlowControl;
   readonly properties?: Record<string, unknown>;
-  readonly template?: Record<string, unknown>;
+  readonly template?: TemplateLink;
 
   private readonly stages: PipelineChild[] = [];
 
@@ -145,15 +151,19 @@ export class Pipeline {
           fixedInputsOnRerun: this.fixedInputsOnRerun,
         }),
         ...(this.timeout !== undefined && { timeout: this.timeout }),
-        ...(this.flowControl !== undefined && { flowControl: this.flowControl }),
+        ...(this.flowControl !== undefined && {
+          flowControl: renderFlowControl(this.flowControl),
+        }),
         ...(this.properties !== undefined && { properties: this.properties }),
         ...(this.notificationRules !== undefined && {
-          notificationRules: this.notificationRules,
+          notificationRules: this.notificationRules.map(renderNotificationRule),
         }),
         ...(this.variables !== undefined && {
           variables: this.variables.map(renderVariable),
         }),
-        ...(this.template !== undefined && { template: this.template }),
+        ...(this.template !== undefined && {
+          template: renderTemplateLink(this.template),
+        }),
         stages: this.stages.map((stage) => stage.toJson()),
       },
     };

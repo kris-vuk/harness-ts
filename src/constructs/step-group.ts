@@ -7,6 +7,7 @@ import {
   renderFailureStrategy,
 } from "./failure-strategy.js";
 import { type Strategy, renderStrategy } from "./strategy.js";
+import { type TemplateLink, renderTemplateLink } from "./template-link.js";
 
 /**
  * Properties of a step group (`StepGroupElementConfig`). A step group is a
@@ -15,10 +16,10 @@ import { type Strategy, renderStrategy } from "./strategy.js";
  * parallel group it has its own identifier and can carry its own `when`,
  * `failureStrategies`, `strategy`, and step-group infrastructure.
  *
- * Structurally rich fields (`stepGroupInfra`, `platform`, `template`,
- * `variables`, and the `when`/`failureStrategies`/`strategy` blocks) are
- * accepted as pass-through objects for now; dedicated constructs can be added
- * later without changing this surface.
+ * `variables`, the `when`/`failureStrategies`/`strategy` blocks, and `template`
+ * are modeled by dedicated value objects; `stepGroupInfra` and `platform`
+ * remain pass-through objects for now (dedicated constructs can be added later
+ * without changing this surface).
  */
 export interface StepGroupProps {
   /** Display name. */
@@ -47,7 +48,7 @@ export interface StepGroupProps {
   /** Platform selectors for the group (`platform`). */
   platform?: Record<string, unknown>;
   /** Reference to a step-group template (`TemplateLinkConfig`). */
-  template?: Record<string, unknown>;
+  template?: TemplateLink;
 }
 
 /**
@@ -70,7 +71,7 @@ export class StepGroup implements ExecutionItem {
   private readonly variables?: NGVariable[];
   private readonly stepGroupInfra?: Record<string, unknown>;
   private readonly platform?: Record<string, unknown>;
-  private readonly template?: Record<string, unknown>;
+  private readonly template?: TemplateLink;
 
   constructor(props: StepGroupProps) {
     this.name = props.name;
@@ -121,7 +122,9 @@ export class StepGroup implements ExecutionItem {
         identifier: this.identifier,
         name: this.name,
         ...(this.description !== undefined && { description: this.description }),
-        ...(this.template !== undefined && { template: this.template }),
+        ...(this.template !== undefined && {
+          template: renderTemplateLink(this.template),
+        }),
         ...(this.items.length > 0 && {
           steps: this.items.map((item) => item.toJson()),
         }),

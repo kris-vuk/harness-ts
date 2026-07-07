@@ -1,4 +1,28 @@
 import { Stage, type StageProps, type ExecutionItem } from "./stage.js";
+import {
+  type DeploymentService,
+  type DeploymentEnvironment,
+  type InfrastructureDefinition,
+  renderDeploymentService,
+  renderDeploymentEnvironment,
+  validateDeploymentTarget,
+} from "./deployment-target.js";
+
+/**
+ * @deprecated Use {@link DeploymentService} from `deployment-target.ts`.
+ * Retained as an alias for source compatibility.
+ */
+export type DeploymentServiceProps = DeploymentService;
+/**
+ * @deprecated Use {@link DeploymentEnvironment} from `deployment-target.ts`.
+ * Retained as an alias for source compatibility.
+ */
+export type DeploymentEnvironmentProps = DeploymentEnvironment;
+/**
+ * @deprecated Use {@link InfrastructureDefinition} from `deployment-target.ts`.
+ * Retained as an alias for source compatibility.
+ */
+export type InfrastructureDefinitionProps = InfrastructureDefinition;
 
 /** Deployment types supported by a CD stage per the v0 schema. */
 export type DeploymentType =
@@ -22,36 +46,10 @@ export type DeploymentType =
   | "Salesforce"
   | "GoogleManagedInstanceGroup";
 
-/** The service to deploy (`ServiceYamlV2`). */
-export interface DeploymentServiceProps {
-  /** Reference to an existing Harness service. */
-  serviceRef: string;
-  /** Runtime inputs for the service's referenced template/artifacts. */
-  serviceInputs?: Record<string, unknown>;
-}
-
-/** An infrastructure the environment deploys to (`InfraStructureDefinitionYaml`). */
-export interface InfrastructureDefinitionProps {
-  /** Reference to an existing infrastructure definition. */
-  identifier: string;
-  /** Runtime inputs for the infrastructure definition. */
-  inputs?: Record<string, unknown>;
-}
-
-/** The environment to deploy into (`EnvironmentYamlV2`). */
-export interface DeploymentEnvironmentProps {
-  /** Reference to an existing Harness environment. */
-  environmentRef: string;
-  /** Deploy to every infrastructure in the environment. Defaults to false. */
-  deployToAll?: boolean;
-  /** The specific infrastructures to deploy to (when not `deployToAll`). */
-  infrastructureDefinitions?: InfrastructureDefinitionProps[];
-}
-
 export interface DeploymentStageProps extends StageProps {
   deploymentType: DeploymentType;
-  service: DeploymentServiceProps;
-  environment: DeploymentEnvironmentProps;
+  service: DeploymentService;
+  environment: DeploymentEnvironment;
   /** The deployment execution steps (e.g. Rollout, Canary). */
   steps?: ExecutionItem[];
   /** Steps run when the deployment fails and rolls back. */
@@ -72,8 +70,8 @@ export class DeploymentStage extends Stage {
   readonly stageType = "Deployment";
 
   private readonly deploymentType: DeploymentType;
-  private readonly service: DeploymentServiceProps;
-  private readonly environment: DeploymentEnvironmentProps;
+  private readonly service: DeploymentService;
+  private readonly environment: DeploymentEnvironment;
   private readonly steps: ExecutionItem[] = [];
   private readonly rollbackSteps: ExecutionItem[] = [];
   private readonly gitOpsEnabled?: boolean;
@@ -104,18 +102,7 @@ export class DeploymentStage extends Stage {
 
   override validate(): string[] {
     const errors = super.validate();
-    if (this.service.serviceRef.trim() === "") {
-      errors.push("service.serviceRef must not be empty");
-    }
-    if (this.environment.environmentRef.trim() === "") {
-      errors.push("environment.environmentRef must not be empty");
-    }
-    const infra = this.environment.infrastructureDefinitions ?? [];
-    if (!this.environment.deployToAll && infra.length === 0) {
-      errors.push(
-        "environment must specify infrastructureDefinitions or set deployToAll",
-      );
-    }
+    errors.push(...validateDeploymentTarget(this.service, this.environment));
     if (this.steps.length === 0) {
       errors.push("stage must contain at least one step");
     }
@@ -138,25 +125,10 @@ export class DeploymentStage extends Stage {
   }
 
   protected renderSpec(): Record<string, unknown> {
-    const infra = this.environment.infrastructureDefinitions ?? [];
     return {
       deploymentType: this.deploymentType,
-      service: {
-        serviceRef: this.service.serviceRef,
-        ...(this.service.serviceInputs !== undefined && {
-          serviceInputs: this.service.serviceInputs,
-        }),
-      },
-      environment: {
-        environmentRef: this.environment.environmentRef,
-        deployToAll: this.environment.deployToAll ?? false,
-        ...(infra.length > 0 && {
-          infrastructureDefinitions: infra.map((def) => ({
-            identifier: def.identifier,
-            ...(def.inputs !== undefined && { inputs: def.inputs }),
-          })),
-        }),
-      },
+      service: renderDeploymentService(this.service),
+      environment: renderDeploymentEnvironment(this.environment),
       ...(this.gitOpsEnabled !== undefined && { gitOpsEnabled: this.gitOpsEnabled }),
       execution: {
         steps: this.steps.map((item) => item.toJson()),

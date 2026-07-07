@@ -48,6 +48,17 @@ Typed replacements for the loose `Record<string, unknown>` fields (union/interfa
 Still pass-through `Record` on the bases: `runMode`, `properties`,
 `stepGroupInfra`, `platform`.
 
+## Triggers
+
+Top-level resources, **separate from the pipeline document** — a trigger renders
+its own `{ trigger: { ... } }` YAML and references a pipeline by
+`pipelineIdentifier` (not part of the v0 pipeline schema). Like `Pipeline`, they
+expose `toJson()` / `validate()` / `synth()`.
+
+| Construct | File | Status |
+| --- | --- | --- |
+| `GithubPushTrigger` (GitHub `Webhook`/`Push`) | `github-push-trigger.ts` | ✅ |
+
 ## Stages (12)
 
 | Stage type | Construct | Status |

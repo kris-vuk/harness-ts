@@ -1,7 +1,7 @@
 {
-  "name": "harness-development-kit",
+  "name": "harness-ts",
   "version": "0.1.0",
-  "description": "TypeScript constructs that synthesize Harness.io pipeline YAML",
+  "description": "TypeScript constructs that synthesize into Harness.io pipeline YAML",
   "main": "dist/index.js",
   "scripts": {
     "test": "vitest run",

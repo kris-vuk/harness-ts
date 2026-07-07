@@ -1,4 +1,4 @@
-# Harness Development Kit
+# harness-ts
 
 TypeScript constructs that synthesize [Harness.io](https://www.harness.io/) pipeline YAML.
 
@@ -248,6 +248,37 @@ new ParallelGroup({ steps: [stepA, stepB] });
 
 Groups are themselves execution items, so they nest and can be added to any stage
 via `addStep()`.
+
+## Triggers
+
+A pipeline runs from its first stage; there is no "starting step". To start a
+pipeline automatically when a source repo is updated, use a **trigger** — a
+top-level resource, separate from the pipeline document, that references a
+pipeline and renders its own YAML (`trigger.synth()`).
+
+`GithubPushTrigger` watches a GitHub repo (via an existing Git connector) and
+starts the pipeline when a push matches the watched branch:
+
+```ts
+import { GithubPushTrigger } from "./src/constructs/github-push-trigger.js";
+
+const trigger = new GithubPushTrigger({
+  name: "on push to main",
+  pipeline,                     // derives pipeline/org/project identifiers
+  connectorRef: "github_conn",  // an existing Git connector
+  repoName: "my-org/my-service",
+  branch: "main",               // -> payloadConditions: targetBranch Equals main
+});
+
+console.log(trigger.synth());   // emits the `trigger:` YAML document
+```
+
+By default it passes the pushed branch into the run's CI codebase
+(`build.spec.branch: <+trigger.branch>`); override with `inputYaml`, or set
+`inputYaml: false` to omit it. Add `payloadConditions` for finer matching and
+`branchOperator` (`Equals` / `StartsWith` / `Regex` / …) to change how `branch`
+is matched. The trigger and the pipeline are synthesized to separate YAML
+documents.
 
 ## Development
 

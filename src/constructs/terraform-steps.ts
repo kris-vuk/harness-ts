@@ -150,6 +150,12 @@ export interface TerraformCliFlag {
 export interface TerraformExecutionConfig {
   /** Where the root Terraform module lives. */
   configFiles: GitStore;
+  /**
+   * Module-source options for `configFiles` (`ModuleSource`), rendered as a
+   * sibling of `configFiles.store`. Set `useConnectorCredentials` to reuse the
+   * config-files connector's credentials when fetching remote modules.
+   */
+  moduleSource?: { useConnectorCredentials: boolean | string };
   varFiles?: TerraformVarFile[];
   backendConfig?: TerraformBackendConfig;
   /** Terraform env vars (`TF_VAR_*` etc.); reuses the NGVariable union. */
@@ -182,7 +188,10 @@ function renderExecutionConfig(
   c: TerraformExecutionConfig,
 ): Record<string, unknown> {
   return {
-    configFiles: { store: renderGitStore(c.configFiles) },
+    configFiles: {
+      store: renderGitStore(c.configFiles),
+      ...(c.moduleSource !== undefined && { moduleSource: c.moduleSource }),
+    },
     ...(c.varFiles !== undefined && { varFiles: c.varFiles.map(renderVarFile) }),
     ...(c.backendConfig !== undefined && {
       backendConfig: renderBackendConfig(c.backendConfig),
@@ -354,6 +363,8 @@ export interface TerraformPlanStepProps extends StepProps {
   configuration: TerraformExecutionConfig;
   exportTerraformPlanJson?: boolean | string;
   exportTerraformHumanReadablePlan?: boolean | string;
+  /** Store the generated plan on the delegate rather than the Harness secret manager. */
+  storeTfPlanOnDelegate?: boolean | string;
   commandFlags?: TerraformCliFlag[];
   delegateSelectors?: string[];
 }
@@ -400,6 +411,9 @@ export class TerraformPlanStep extends Step {
         }),
         ...(p.exportTerraformHumanReadablePlan !== undefined && {
           exportTerraformHumanReadablePlan: p.exportTerraformHumanReadablePlan,
+        }),
+        ...(p.storeTfPlanOnDelegate !== undefined && {
+          storeTfPlanOnDelegate: p.storeTfPlanOnDelegate,
         }),
         ...(p.commandFlags !== undefined && {
           commandFlags: renderCliFlags(p.commandFlags),

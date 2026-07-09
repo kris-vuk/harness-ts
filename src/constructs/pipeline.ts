@@ -9,6 +9,31 @@ import { type FlowControl, renderFlowControl } from "./flow-control.js";
 import { type TemplateLink, renderTemplateLink } from "./template-link.js";
 
 /**
+ * Scope within which a pipeline's concurrency `resourceName` is unique — runs
+ * sharing the name within the scope are queued rather than run concurrently.
+ */
+export type ConcurrencyQueueScope =
+  | "Pipeline"
+  | "Project"
+  | "Account"
+  | "Organization";
+
+/**
+ * Pipeline-level concurrency / queuing (`pipeline.concurrency`). Serializes
+ * runs that share `resourceName` within `queueScope`.
+ *
+ * Not part of the Harness v0 pipeline schema exported to `pipeline.json` — the
+ * feature is newer than the exported schema — so a pipeline using it will not
+ * satisfy the bundled schema validator, though Harness accepts it at runtime.
+ */
+export interface PipelineConcurrency {
+  /** Queue key; runs sharing it within `queueScope` are serialized. */
+  resourceName: string;
+  /** Defaults to "Pipeline" on the Harness side when omitted. */
+  queueScope?: ConcurrencyQueueScope;
+}
+
+/**
  * A child that a {@link Pipeline} can render into its `stages` list — a stage,
  * a parallel group, or a template stage. Concrete child constructs are
  * implemented separately; the pipeline only relies on this surface.
@@ -49,6 +74,8 @@ export interface PipelineProps {
   fixedInputsOnRerun?: boolean;
   /** Overall pipeline timeout, e.g. "1h", "30m", "1d". */
   timeout?: string;
+  /** Pipeline-level concurrency / queuing (`concurrency`). */
+  concurrency?: PipelineConcurrency;
   /** Pipeline-level `NGVariable` entries. */
   variables?: NGVariable[];
   /** Notification rules (`NotificationRules` entries). */
@@ -78,6 +105,7 @@ export class Pipeline {
   readonly allowStageExecutions?: boolean;
   readonly fixedInputsOnRerun?: boolean;
   readonly timeout?: string;
+  readonly concurrency?: PipelineConcurrency;
   readonly variables?: NGVariable[];
   readonly notificationRules?: NotificationRule[];
   readonly flowControl?: FlowControl;
@@ -97,6 +125,7 @@ export class Pipeline {
     this.allowStageExecutions = props.allowStageExecutions;
     this.fixedInputsOnRerun = props.fixedInputsOnRerun;
     this.timeout = props.timeout;
+    this.concurrency = props.concurrency;
     this.variables = props.variables;
     this.notificationRules = props.notificationRules;
     this.flowControl = props.flowControl;
@@ -151,6 +180,14 @@ export class Pipeline {
           fixedInputsOnRerun: this.fixedInputsOnRerun,
         }),
         ...(this.timeout !== undefined && { timeout: this.timeout }),
+        ...(this.concurrency !== undefined && {
+          concurrency: {
+            resourceName: this.concurrency.resourceName,
+            ...(this.concurrency.queueScope !== undefined && {
+              queueScope: this.concurrency.queueScope,
+            }),
+          },
+        }),
         ...(this.flowControl !== undefined && {
           flowControl: renderFlowControl(this.flowControl),
         }),

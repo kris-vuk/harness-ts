@@ -93,6 +93,23 @@ export interface FailureStrategy {
   action: FailureAction;
 }
 
+/**
+ * Preset: on any error (`AllErrors`), mark the step/stage as failed
+ * (`MarkAsFailure`). Returned as a single-element array, ready to drop into a
+ * `failureStrategies` field.
+ */
+export function markAsFailure(): FailureStrategy[] {
+  return [{ errors: ["AllErrors"], action: { type: "MarkAsFailure" } }];
+}
+
+/**
+ * Preset: on any error (`AllErrors`), abort (`Abort`). Returned as a
+ * single-element array, ready to drop into a `failureStrategies` field.
+ */
+export function abortOnAllErrors(): FailureStrategy[] {
+  return [{ errors: ["AllErrors"], action: { type: "Abort" } }];
+}
+
 /** Renders a {@link FailureStrategy} to its `{ onFailure: { ... } }` object. */
 export function renderFailureStrategy(
   fs: FailureStrategy,

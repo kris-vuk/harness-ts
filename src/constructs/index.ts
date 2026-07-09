@@ -1,5 +1,12 @@
-export { Pipeline, type PipelineProps, type PipelineChild } from "./pipeline.js";
+export {
+  Pipeline,
+  type PipelineProps,
+  type PipelineChild,
+  type PipelineConcurrency,
+  type ConcurrencyQueueScope,
+} from "./pipeline.js";
 export { Stage, type StageProps, type ExecutionItem } from "./stage.js";
+export { Expr, Expression, type InputExprOptions } from "./expression.js";
 export { CustomStage, type CustomStageProps } from "./custom-stage.js";
 export { ApprovalStage, type ApprovalStageProps } from "./approval-stage.js";
 export { Step, type StepProps } from "./step.js";
@@ -44,6 +51,8 @@ export {
   type FailureErrorType,
   type FailureAction,
   type FailureStrategy,
+  markAsFailure,
+  abortOnAllErrors,
   renderFailureStrategy,
 } from "./failure-strategy.js";
 export {

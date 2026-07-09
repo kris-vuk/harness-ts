@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Step, type StepProps } from "./step.js";
 
 /** Shells supported by the ShellScript step per the v0 schema. */
@@ -33,6 +34,22 @@ export interface ShellScriptStepProps extends StepProps {
  */
 export class ShellScriptStep extends Step {
   readonly stepType = "ShellScript";
+
+  /**
+   * Reads a script from a file so long inline shell can live in a real `.sh`
+   * file (shellcheck-able, syntax-highlighted, testable) instead of a TS string
+   * literal. Pass a path resolved against the calling module so it works
+   * regardless of the process working directory:
+   *
+   * ```ts
+   * script: ShellScriptStep.fromFile(new URL("./scripts/read-tags.sh", import.meta.url))
+   * ```
+   *
+   * A plain string path is also accepted and resolved relative to `process.cwd()`.
+   */
+  static fromFile(path: string | URL): string {
+    return readFileSync(path, "utf8");
+  }
 
   private readonly script: string;
   private readonly shell: Shell;

@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.tgz
+
+# Synthesized output from running the example (App writes here by default)
+.harness/

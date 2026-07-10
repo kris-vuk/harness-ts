@@ -1,6 +1,6 @@
 import { stringify } from "yaml";
 import { isValidIdentifier, toIdentifier } from "../../../identifier.js";
-import type { Pipeline, PipelineTrigger } from "../pipeline.js";
+import type { Pipeline, RunTrigger } from "../pipeline.js";
 
 /**
  * Operators a branch/payload condition can use (`TriggerEventDataCondition`).
@@ -37,9 +37,9 @@ export interface GithubPushTriggerProps {
   identifier?: string;
   /**
    * Pipeline this trigger starts. Defaults to the identifier of the pipeline it
-   * is attached to via `pipeline.addTrigger(trigger)`. Set this to reference a
-   * pipeline you don't hold the object for, then add the trigger to the `App`
-   * directly.
+   * is attached to via `pipeline.addTrigger(trigger)`. Set this explicitly to
+   * reference a pipeline you don't hold the object for, then synth the trigger
+   * on its own.
    */
   pipelineIdentifier?: string;
   /** Org of the referenced pipeline. Defaults to the attached pipeline's org. */
@@ -74,7 +74,7 @@ export interface GithubPushTriggerProps {
  * `{ trigger: { ... } }` YAML document consumed by Harness: when a push to the
  * watched repo matches the branch condition, the referenced pipeline runs.
  */
-export class GithubPushTrigger implements PipelineTrigger {
+export class GithubPushTrigger implements RunTrigger {
   readonly name: string;
   readonly identifier: string;
   readonly connectorRef: string;

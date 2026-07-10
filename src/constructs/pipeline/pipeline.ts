@@ -1,3 +1,5 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { stringify } from "yaml";
 import { isValidIdentifier, toIdentifier } from "../../identifier.js";
 import { type NGVariable, renderVariable } from "../ng-variable.js";
@@ -48,15 +50,20 @@ export interface PipelineChild {
 }
 
 /**
- * A trigger attached to a {@link Pipeline} via {@link Pipeline.addTrigger}.
- * Unlike a {@link PipelineChild}, a trigger is **not** part of the pipeline
+ * Something that starts a **run** of a {@link Pipeline} — e.g. a GitHub push
+ * webhook. Attached via {@link Pipeline.addTrigger}. This is distinct from a
+ * pipeline's git-backed *definition* (Git Experience), which governs how the
+ * pipeline YAML itself is synced, not when it executes.
+ *
+ * Unlike a {@link PipelineChild}, a run trigger is **not** part of the pipeline
  * document: Harness models triggers as sibling entities that reference a
  * pipeline by identifier and render to their own YAML document. `addTrigger`
  * is sugar — it binds the pipeline into the trigger (so it can resolve the
  * identifiers it points at) and registers it for emission alongside the
- * pipeline.
+ * pipeline. GitHub push is the one implementation today; scheduled/artifact
+ * triggers would be additional `RunTrigger`s.
  */
-export interface PipelineTrigger {
+export interface RunTrigger {
   /** Harness identifier; also the trigger's output file name. */
   readonly identifier: string;
   /** Resolve the pipeline this trigger references. Called by `addTrigger`. */
@@ -65,6 +72,35 @@ export interface PipelineTrigger {
   validate(): string[];
   /** Renders the trigger as its own Harness trigger YAML document. */
   synth(): string;
+}
+
+/**
+ * The triggers attached to a {@link Pipeline}, exposed via `pipeline.triggers`.
+ * Iterable, and `synth()` renders each attached trigger to its own YAML
+ * document (one string per trigger) — mirroring how Harness stores each trigger
+ * as a separate entity.
+ */
+export class PipelineTriggers implements Iterable<RunTrigger> {
+  constructor(private readonly items: readonly RunTrigger[]) {}
+
+  /** Number of attached triggers. */
+  get length(): number {
+    return this.items.length;
+  }
+
+  /** The attached triggers as a plain array. */
+  toArray(): RunTrigger[] {
+    return [...this.items];
+  }
+
+  /** Renders each attached trigger to its own Harness trigger YAML document. */
+  synth(): string[] {
+    return this.items.map((trigger) => trigger.synth());
+  }
+
+  [Symbol.iterator](): Iterator<RunTrigger> {
+    return this.items[Symbol.iterator]();
+  }
 }
 
 /**
@@ -133,7 +169,7 @@ export class Pipeline {
   readonly template?: TemplateLink;
 
   private readonly stages: PipelineChild[] = [];
-  private readonly triggers: PipelineTrigger[] = [];
+  private readonly attachedTriggers: RunTrigger[] = [];
 
   constructor(props: PipelineProps) {
     this.name = props.name;
@@ -165,23 +201,65 @@ export class Pipeline {
   /**
    * Attaches a trigger to this pipeline. Syntactic sugar over building a
    * standalone trigger: it back-fills this pipeline's identifiers into the
-   * trigger and registers it so `App.add(pipeline)` also writes the trigger's
-   * own YAML file. The trigger stays a separate document — Harness models
-   * triggers as sibling entities, not part of the pipeline. Chainable.
+   * trigger so it resolves what it points at. The trigger stays a separate
+   * document — Harness models triggers as sibling entities, not part of the
+   * pipeline — and `build()` writes it to its own file. Chainable.
    */
-  addTrigger(trigger: PipelineTrigger): this {
+  addTrigger(trigger: RunTrigger): this {
     trigger.bindToPipeline(this);
-    this.triggers.push(trigger);
+    this.attachedTriggers.push(trigger);
     return this;
   }
 
   /**
-   * Resources emitted alongside this pipeline (its triggers). The {@link App}
-   * calls this so `add(pipeline)` also writes each attached trigger's YAML
-   * file.
+   * The triggers attached via {@link addTrigger}. Use `pipeline.triggers.synth()`
+   * to render each to its own YAML string, or iterate to inspect them.
    */
-  attachedResources(): PipelineTrigger[] {
-    return [...this.triggers];
+  get triggers(): PipelineTriggers {
+    return new PipelineTriggers(this.attachedTriggers);
+  }
+
+  /**
+   * Writes this pipeline and each attached trigger to its own YAML file under
+   * `outdir` (default `.harness`). The output directory is **cleared and
+   * recreated** on every build, so files from removed pipelines/triggers don't
+   * linger. Files are named `<identifier>.yaml`. Returns the absolute paths
+   * written.
+   *
+   * Everything is rendered (and validated) before the directory is touched, so
+   * an invalid pipeline or trigger throws and leaves the existing output intact.
+   * Throws if the pipeline and a trigger resolve to the same file name.
+   */
+  build(outdir = ".harness"): string[] {
+    const dir = resolve(outdir);
+
+    const rendered: { path: string; yaml: string }[] = [];
+    const seen = new Set<string>();
+    const stage = (identifier: string, yaml: string): void => {
+      const fileName = `${identifier}.yaml`;
+      if (seen.has(fileName)) {
+        throw new Error(
+          `Pipeline.build: two resources write to "${fileName}"; ` +
+            "give the pipeline or trigger a distinct identifier.",
+        );
+      }
+      seen.add(fileName);
+      rendered.push({ path: join(dir, fileName), yaml });
+    };
+
+    // Render everything first so a validation error leaves the output untouched.
+    stage(this.identifier, this.synth());
+    for (const trigger of this.attachedTriggers) {
+      stage(trigger.identifier, trigger.synth());
+    }
+
+    // Only now that rendering succeeded, clear and recreate the output dir.
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+    for (const { path, yaml } of rendered) {
+      writeFileSync(path, yaml);
+    }
+    return rendered.map((r) => r.path);
   }
 
   /** Returns problems with the pipeline and everything in it; empty when valid. */

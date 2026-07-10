@@ -2,7 +2,8 @@ export {
   Pipeline,
   type PipelineProps,
   type PipelineChild,
-  type PipelineTrigger,
+  type RunTrigger,
+  PipelineTriggers,
   type PipelineConcurrency,
   type ConcurrencyQueueScope,
 } from "./pipeline/pipeline.js";

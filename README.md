@@ -277,10 +277,11 @@ pipeline.addTrigger(
 ```
 
 The trigger still renders to its **own** YAML document (Harness models triggers
-as sibling entities, not part of the pipeline). `App.add(pipeline)` emits it
-alongside the pipeline automatically — see below. To reference a pipeline you
-don't hold the object for, set `pipelineIdentifier` (and `projectIdentifier`)
-directly and add the trigger to the `App` yourself.
+as sibling entities, not part of the pipeline). `pipeline.build()` writes it
+alongside the pipeline automatically — see below — and `pipeline.triggers.synth()`
+returns one YAML string per attached trigger. To reference a pipeline you don't
+hold the object for, set `pipelineIdentifier` (and `projectIdentifier`) directly
+and call `trigger.synth()` yourself.
 
 By default it passes the pushed branch into the run's CI codebase
 (`build.spec.branch: <+trigger.branch>`); override with `inputYaml`, or set
@@ -289,20 +290,20 @@ By default it passes the pushed branch into the run's CI codebase
 is matched. The trigger and the pipeline are synthesized to separate YAML
 documents.
 
-## Writing YAML to disk on build (`App`)
+## Writing YAML to disk on build (`pipeline.build()`)
 
-`pipeline.synth()` returns a YAML **string**. To turn a set of resources into
-files on every build — one `.harness/<identifier>.yaml` per pipeline/trigger —
-use `App` instead of writing files yourself:
+`pipeline.synth()` returns the pipeline YAML **string**; `pipeline.triggers.synth()`
+returns one string per attached trigger. To write everything to files on every
+build — one `.harness/<identifier>.yaml` per pipeline/trigger — call
+`pipeline.build()`:
 
 ```ts
 // harness.ts
-import { App } from "./src/index.js"; // or "harness-ts" if installed from npm
 import { pipeline } from "./my-pipeline.js"; // pipeline.addTrigger(...) applied
 
-new App({ outdir: ".harness" }) // outdir defaults to ".harness"
-  .add(pipeline)                // -> .harness/<pipeline identifier>.yaml
-  .synth();                     //    + one file per attached trigger
+pipeline.build();          // -> .harness/<pipeline identifier>.yaml
+                           //    + one file per attached trigger
+// pipeline.build("out");  // override the output directory (defaults to ".harness")
 ```
 
 Wire it to an npm script:
@@ -312,21 +313,23 @@ Wire it to an npm script:
 "scripts": { "synth": "tsx harness.ts" }
 ```
 
-`npm run synth` then writes one file per resource. `App` creates `outdir` if it
-doesn't exist and returns the absolute paths written. Notes:
+`npm run synth` then writes one file per resource and returns the absolute paths
+written. Notes:
 
-- **Attached triggers ride along.** `add(pipeline)` also emits any trigger added
-  via `pipeline.addTrigger(...)`, each to its own file. Adding the same trigger
-  explicitly as well is harmless — `App` dedupes by identity.
-- **File name** defaults to the resource identifier; override per resource with
-  `app.add(pipeline, { fileName: "my_pipeline" })`.
-- **Validation first.** Every resource is rendered (and therefore validated)
-  before anything is written, so an invalid pipeline throws and leaves no
-  partial output.
-- **Collisions throw.** Two resources resolving to the same file is an error —
-  give one a distinct `fileName`.
-- `add()` accepts anything with an `identifier` and a `synth()` (a `Pipeline` or
-  a `GithubPushTrigger` today).
+- **The output directory is cleared on every build.** `build()` removes and
+  recreates `outdir` (default `.harness`), so YAML from renamed or removed
+  pipelines/triggers never lingers. This clear happens only *after* rendering
+  succeeds — a validation error leaves the existing output untouched. Point
+  `build()` at a directory it owns, not one with hand-authored files.
+- **Attached triggers ride along.** `build()` also writes any trigger added via
+  `pipeline.addTrigger(...)`, each to its own `<trigger identifier>.yaml`.
+- **File name** is the resource identifier; give the pipeline or trigger a
+  distinct `identifier` to control it.
+- **Validation first.** The pipeline and every trigger are rendered (and
+  therefore validated) before anything is written, so an invalid pipeline or
+  trigger throws and leaves no partial output.
+- **Collisions throw.** The pipeline and a trigger resolving to the same file is
+  an error — give one a distinct identifier.
 
 ## Storing the pipeline definition in git
 
@@ -373,7 +376,7 @@ of tracking the branch tip.
 never writes files), delivering the definition to the repo is a consumer step.
 The full loop:
 
-1. Compose the construct tree and run `npm run synth` (the [`App`](#writing-yaml-to-disk-on-build-app)
+1. Compose the construct tree and run `npm run synth` (the [`pipeline.build()`](#writing-yaml-to-disk-on-build-pipelinebuild)
    step above) to write `.harness/<identifier>.yaml`. Point `filePath` at that
    same path.
 2. Commit/push the `.harness` file to the defs repo.

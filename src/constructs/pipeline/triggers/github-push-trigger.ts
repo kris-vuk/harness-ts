@@ -1,6 +1,6 @@
 import { stringify } from "yaml";
-import { isValidIdentifier, toIdentifier } from "../identifier.js";
-import type { Pipeline } from "./pipeline.js";
+import { isValidIdentifier, toIdentifier } from "../../../identifier.js";
+import type { Pipeline, PipelineTrigger } from "../pipeline.js";
 
 /**
  * Operators a branch/payload condition can use (`TriggerEventDataCondition`).
@@ -35,13 +35,16 @@ export interface GithubPushTriggerProps {
   name: string;
   /** Defaults to an identifier derived from `name` ("On Push" -> "On_Push"). */
   identifier?: string;
-  /** Pipeline this trigger starts. Supplies pipeline/org/project identifiers. */
-  pipeline: Pipeline;
-  /** Override the identifier derived from `pipeline`. */
+  /**
+   * Pipeline this trigger starts. Defaults to the identifier of the pipeline it
+   * is attached to via `pipeline.addTrigger(trigger)`. Set this to reference a
+   * pipeline you don't hold the object for, then add the trigger to the `App`
+   * directly.
+   */
   pipelineIdentifier?: string;
-  /** Override the org derived from `pipeline`. */
+  /** Org of the referenced pipeline. Defaults to the attached pipeline's org. */
   orgIdentifier?: string;
-  /** Override the project derived from `pipeline`. */
+  /** Project of the referenced pipeline. Defaults to the attached pipeline's project. */
   projectIdentifier?: string;
   /** Existing Git connector ref (assumed to exist). */
   connectorRef: string;
@@ -71,28 +74,27 @@ export interface GithubPushTriggerProps {
  * `{ trigger: { ... } }` YAML document consumed by Harness: when a push to the
  * watched repo matches the branch condition, the referenced pipeline runs.
  */
-export class GithubPushTrigger {
+export class GithubPushTrigger implements PipelineTrigger {
   readonly name: string;
   readonly identifier: string;
-  readonly pipelineIdentifier: string;
-  readonly orgIdentifier: string;
-  readonly projectIdentifier: string;
   readonly connectorRef: string;
   readonly repoName: string;
   readonly branch?: string;
   readonly branchOperator: BranchOperator;
   readonly payloadConditions: PayloadCondition[];
   readonly enabled?: boolean;
+  private readonly pipelineIdentifierOverride?: string;
+  private readonly orgIdentifierOverride?: string;
+  private readonly projectIdentifierOverride?: string;
+  private boundPipeline?: Pipeline;
   private readonly inputYaml: Record<string, unknown> | false | undefined;
 
   constructor(props: GithubPushTriggerProps) {
     this.name = props.name;
     this.identifier = props.identifier ?? toIdentifier(props.name);
-    this.pipelineIdentifier =
-      props.pipelineIdentifier ?? props.pipeline.identifier;
-    this.orgIdentifier = props.orgIdentifier ?? props.pipeline.orgIdentifier;
-    this.projectIdentifier =
-      props.projectIdentifier ?? props.pipeline.projectIdentifier;
+    this.pipelineIdentifierOverride = props.pipelineIdentifier;
+    this.orgIdentifierOverride = props.orgIdentifier;
+    this.projectIdentifierOverride = props.projectIdentifier;
     this.connectorRef = props.connectorRef;
     this.repoName = props.repoName;
     this.branch = props.branch;
@@ -100,6 +102,36 @@ export class GithubPushTrigger {
     this.payloadConditions = props.payloadConditions ?? [];
     this.enabled = props.enabled;
     this.inputYaml = props.inputYaml;
+  }
+
+  /**
+   * Binds this trigger to the pipeline it starts, so `pipelineIdentifier` (and
+   * org/project) resolve from that pipeline unless explicitly overridden.
+   * Called by {@link Pipeline.addTrigger}; you rarely call it directly.
+   */
+  bindToPipeline(pipeline: Pipeline): void {
+    this.boundPipeline = pipeline;
+  }
+
+  /** Identifier of the pipeline this trigger starts, once resolved. */
+  get pipelineIdentifier(): string | undefined {
+    return this.pipelineIdentifierOverride ?? this.boundPipeline?.identifier;
+  }
+
+  /** Org of the referenced pipeline (defaults to "default"). */
+  get orgIdentifier(): string {
+    return (
+      this.orgIdentifierOverride ??
+      this.boundPipeline?.orgIdentifier ??
+      "default"
+    );
+  }
+
+  /** Project of the referenced pipeline, once resolved. */
+  get projectIdentifier(): string | undefined {
+    return (
+      this.projectIdentifierOverride ?? this.boundPipeline?.projectIdentifier
+    );
   }
 
   /** All payload conditions, with the `branch` shorthand (if any) first. */
@@ -123,8 +155,19 @@ export class GithubPushTrigger {
     if (!isValidIdentifier(this.identifier)) {
       errors.push(`invalid identifier "${this.identifier}"`);
     }
-    if (!isValidIdentifier(this.pipelineIdentifier)) {
+    if (this.pipelineIdentifier === undefined) {
+      errors.push(
+        "trigger is not attached to a pipeline; add it via " +
+          "pipeline.addTrigger(trigger) or set pipelineIdentifier",
+      );
+    } else if (!isValidIdentifier(this.pipelineIdentifier)) {
       errors.push(`invalid pipelineIdentifier "${this.pipelineIdentifier}"`);
+    }
+    if (this.projectIdentifier === undefined) {
+      errors.push(
+        "trigger has no projectIdentifier; attach it to a pipeline or set " +
+          "projectIdentifier",
+      );
     }
     if (this.connectorRef.trim() === "") {
       errors.push("connectorRef must not be empty");

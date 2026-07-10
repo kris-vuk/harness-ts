@@ -1,12 +1,12 @@
 import { stringify } from "yaml";
-import { isValidIdentifier, toIdentifier } from "../identifier.js";
-import { type NGVariable, renderVariable } from "./ng-variable.js";
+import { isValidIdentifier, toIdentifier } from "../../identifier.js";
+import { type NGVariable, renderVariable } from "../ng-variable.js";
 import {
   type NotificationRule,
   renderNotificationRule,
-} from "./notification.js";
-import { type FlowControl, renderFlowControl } from "./flow-control.js";
-import { type TemplateLink, renderTemplateLink } from "./template-link.js";
+} from "../notification.js";
+import { type FlowControl, renderFlowControl } from "../flow-control.js";
+import { type TemplateLink, renderTemplateLink } from "../template-link.js";
 
 /**
  * Scope within which a pipeline's concurrency `resourceName` is unique — runs
@@ -45,6 +45,26 @@ export interface PipelineChild {
   validate(): string[];
   /** Renders the child's entry in the pipeline's `stages` list. */
   toJson(): Record<string, unknown>;
+}
+
+/**
+ * A trigger attached to a {@link Pipeline} via {@link Pipeline.addTrigger}.
+ * Unlike a {@link PipelineChild}, a trigger is **not** part of the pipeline
+ * document: Harness models triggers as sibling entities that reference a
+ * pipeline by identifier and render to their own YAML document. `addTrigger`
+ * is sugar — it binds the pipeline into the trigger (so it can resolve the
+ * identifiers it points at) and registers it for emission alongside the
+ * pipeline.
+ */
+export interface PipelineTrigger {
+  /** Harness identifier; also the trigger's output file name. */
+  readonly identifier: string;
+  /** Resolve the pipeline this trigger references. Called by `addTrigger`. */
+  bindToPipeline(pipeline: Pipeline): void;
+  /** Returns problems with this trigger; empty when valid. */
+  validate(): string[];
+  /** Renders the trigger as its own Harness trigger YAML document. */
+  synth(): string;
 }
 
 /**
@@ -113,6 +133,7 @@ export class Pipeline {
   readonly template?: TemplateLink;
 
   private readonly stages: PipelineChild[] = [];
+  private readonly triggers: PipelineTrigger[] = [];
 
   constructor(props: PipelineProps) {
     this.name = props.name;
@@ -139,6 +160,28 @@ export class Pipeline {
   addStage(stage: PipelineChild): this {
     this.stages.push(stage);
     return this;
+  }
+
+  /**
+   * Attaches a trigger to this pipeline. Syntactic sugar over building a
+   * standalone trigger: it back-fills this pipeline's identifiers into the
+   * trigger and registers it so `App.add(pipeline)` also writes the trigger's
+   * own YAML file. The trigger stays a separate document — Harness models
+   * triggers as sibling entities, not part of the pipeline. Chainable.
+   */
+  addTrigger(trigger: PipelineTrigger): this {
+    trigger.bindToPipeline(this);
+    this.triggers.push(trigger);
+    return this;
+  }
+
+  /**
+   * Resources emitted alongside this pipeline (its triggers). The {@link App}
+   * calls this so `add(pipeline)` also writes each attached trigger's YAML
+   * file.
+   */
+  attachedResources(): PipelineTrigger[] {
+    return [...this.triggers];
   }
 
   /** Returns problems with the pipeline and everything in it; empty when valid. */

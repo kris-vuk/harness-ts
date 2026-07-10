@@ -29,23 +29,44 @@ describe("App", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("writes one <identifier>.yaml file per resource", () => {
-    const pipeline = samplePipeline();
-    const trigger = new GithubPushTrigger({
-      name: "On Push",
-      pipeline,
-      connectorRef: "github_conn",
-      repoName: "my-org/app",
-      branch: "main",
-    });
+  test("add(pipeline) also writes its attached triggers", () => {
+    const pipeline = samplePipeline().addTrigger(
+      new GithubPushTrigger({
+        name: "On Push",
+        connectorRef: "github_conn",
+        repoName: "my-org/app",
+        branch: "main",
+      }),
+    );
 
-    const written = new App({ outdir: dir }).add(pipeline).add(trigger).synth();
+    const written = new App({ outdir: dir }).add(pipeline).synth();
 
     expect(readdirSync(dir).sort()).toEqual(["My_Pipeline.yaml", "On_Push.yaml"]);
     expect(written).toHaveLength(2);
     expect(readFileSync(join(dir, "My_Pipeline.yaml"), "utf8")).toContain(
       "identifier: My_Pipeline",
     );
+    expect(readFileSync(join(dir, "On_Push.yaml"), "utf8")).toContain(
+      "pipelineIdentifier: My_Pipeline",
+    );
+  });
+
+  test("does not double-write a trigger added both ways", () => {
+    const trigger = new GithubPushTrigger({
+      name: "On Push",
+      connectorRef: "github_conn",
+      repoName: "my-org/app",
+      branch: "main",
+    });
+    const pipeline = samplePipeline().addTrigger(trigger);
+
+    const written = new App({ outdir: dir }).add(pipeline).add(trigger).synth();
+
+    expect(written).toHaveLength(2);
+    expect(readdirSync(dir).sort()).toEqual([
+      "My_Pipeline.yaml",
+      "On_Push.yaml",
+    ]);
   });
 
   test("creates the output directory when missing", () => {

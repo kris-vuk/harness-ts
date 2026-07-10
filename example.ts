@@ -1,5 +1,5 @@
 import { CustomStage } from "./src/constructs/custom-stage.js";
-import { Pipeline } from "./src/constructs/pipeline.js";
+import { Pipeline } from "./src/constructs/pipeline/pipeline.js";
 import { ShellScriptStep } from "./src/constructs/shell-script-step.js";
 
 

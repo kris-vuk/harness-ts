@@ -1,5 +1,5 @@
 import { isValidIdentifier, toIdentifier } from "../identifier.js";
-import type { PipelineChild } from "./pipeline.js";
+import type { PipelineChild } from "./pipeline/pipeline.js";
 import { type NGVariable, renderVariable } from "./ng-variable.js";
 import { type StageWhen, renderStageWhen } from "./when-condition.js";
 import {

@@ -2,9 +2,10 @@ export {
   Pipeline,
   type PipelineProps,
   type PipelineChild,
+  type PipelineTrigger,
   type PipelineConcurrency,
   type ConcurrencyQueueScope,
-} from "./pipeline.js";
+} from "./pipeline/pipeline.js";
 export { Stage, type StageProps, type ExecutionItem } from "./stage.js";
 export { Expr, Expression, type InputExprOptions } from "./expression.js";
 export { CustomStage, type CustomStageProps } from "./custom-stage.js";
@@ -78,12 +79,12 @@ export {
   type GithubPushTriggerProps,
   type BranchOperator,
   type PayloadCondition,
-} from "./github-push-trigger.js";
+} from "./pipeline/triggers/github-push-trigger.js";
 export {
   PipelineGitConfig,
   type PipelineGitConfigProps,
   type PipelineGitFetchType,
-} from "./pipeline-git-config.js";
+} from "./pipeline/pipeline-git-config.js";
 export {
   type TemplateLink,
   renderTemplateLink,

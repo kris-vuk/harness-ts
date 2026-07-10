@@ -259,21 +259,28 @@ top-level resource, separate from the pipeline document, that references a
 pipeline and renders its own YAML (`trigger.synth()`).
 
 `GithubPushTrigger` watches a GitHub repo (via an existing Git connector) and
-starts the pipeline when a push matches the watched branch:
+starts the pipeline when a push matches the watched branch. Attach it with
+`pipeline.addTrigger(...)` — sugar that back-fills the pipeline/org/project
+identifiers into the trigger:
 
 ```ts
-import { GithubPushTrigger } from "./src/constructs/github-push-trigger.js";
+import { GithubPushTrigger } from "./src/constructs/pipeline/triggers/github-push-trigger.js";
 
-const trigger = new GithubPushTrigger({
-  name: "on push to main",
-  pipeline,                     // derives pipeline/org/project identifiers
-  connectorRef: "github_conn",  // an existing Git connector
-  repoName: "my-org/my-service",
-  branch: "main",               // -> payloadConditions: targetBranch Equals main
-});
-
-console.log(trigger.synth());   // emits the `trigger:` YAML document
+pipeline.addTrigger(
+  new GithubPushTrigger({
+    name: "on push to main",
+    connectorRef: "github_conn",  // an existing Git connector
+    repoName: "my-org/my-service",
+    branch: "main",               // -> payloadConditions: targetBranch Equals main
+  }),
+);
 ```
+
+The trigger still renders to its **own** YAML document (Harness models triggers
+as sibling entities, not part of the pipeline). `App.add(pipeline)` emits it
+alongside the pipeline automatically — see below. To reference a pipeline you
+don't hold the object for, set `pipelineIdentifier` (and `projectIdentifier`)
+directly and add the trigger to the `App` yourself.
 
 By default it passes the pushed branch into the run's CI codebase
 (`build.spec.branch: <+trigger.branch>`); override with `inputYaml`, or set
@@ -291,12 +298,11 @@ use `App` instead of writing files yourself:
 ```ts
 // harness.ts
 import { App } from "./src/index.js"; // or "harness-ts" if installed from npm
-import { pipeline, trigger } from "./my-pipeline.js";
+import { pipeline } from "./my-pipeline.js"; // pipeline.addTrigger(...) applied
 
 new App({ outdir: ".harness" }) // outdir defaults to ".harness"
   .add(pipeline)                // -> .harness/<pipeline identifier>.yaml
-  .add(trigger)                 // -> .harness/<trigger identifier>.yaml
-  .synth();
+  .synth();                     //    + one file per attached trigger
 ```
 
 Wire it to an npm script:
@@ -309,6 +315,9 @@ Wire it to an npm script:
 `npm run synth` then writes one file per resource. `App` creates `outdir` if it
 doesn't exist and returns the absolute paths written. Notes:
 
+- **Attached triggers ride along.** `add(pipeline)` also emits any trigger added
+  via `pipeline.addTrigger(...)`, each to its own file. Adding the same trigger
+  explicitly as well is harmless — `App` dedupes by identity.
 - **File name** defaults to the resource identifier; override per resource with
   `app.add(pipeline, { fileName: "my_pipeline" })`.
 - **Validation first.** Every resource is rendered (and therefore validated)
@@ -338,7 +347,7 @@ Git-sync metadata (`storeType: REMOTE`, connector, repo, branch, file path) is
 that *references* a pipeline and renders that entity-level "git details" block:
 
 ```ts
-import { PipelineGitConfig } from "./src/constructs/pipeline-git-config.js";
+import { PipelineGitConfig } from "./src/constructs/pipeline/pipeline-git-config.js";
 
 const gitConfig = new PipelineGitConfig({
   pipeline,                             // supplies the pipeline identifier

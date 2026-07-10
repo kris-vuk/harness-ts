@@ -1,4 +1,4 @@
-import { isValidIdentifier } from "../identifier.js";
+import { isValidIdentifier } from "../../identifier.js";
 import type { Pipeline } from "./pipeline.js";
 
 /**

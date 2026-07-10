@@ -11,6 +11,24 @@ export interface Synthesizable {
   synth(): string;
 }
 
+/**
+ * A resource that carries other synthesizable resources emitted alongside it —
+ * e.g. a {@link Pipeline} exposes its attached triggers. {@link App.add}
+ * discovers these so one `add()` writes every related file.
+ */
+interface HasAttachedResources {
+  attachedResources(): Synthesizable[];
+}
+
+function hasAttachedResources(
+  resource: Synthesizable,
+): resource is Synthesizable & HasAttachedResources {
+  return (
+    typeof (resource as Partial<HasAttachedResources>).attachedResources ===
+    "function"
+  );
+}
+
 /** A resource added to an {@link App}, with its resolved output file name. */
 interface AppEntry {
   resource: Synthesizable;
@@ -42,9 +60,9 @@ export interface AddOptions {
  * ```ts
  * // harness.ts
  * import { App } from "harness-ts";
- * import { pipeline, trigger } from "./my-pipeline.js";
+ * import { pipeline } from "./my-pipeline.js"; // with pipeline.addTrigger(...)
  *
- * new App().add(pipeline).add(trigger).synth();
+ * new App().add(pipeline).synth(); // writes the pipeline + its triggers
  * ```
  *
  * ```jsonc
@@ -64,12 +82,30 @@ export class App {
     this.outdir = props.outdir ?? ".harness";
   }
 
-  /** Registers a resource to be written on {@link synth}. Chainable. */
+  /**
+   * Registers a resource to be written on {@link synth}, along with any
+   * resources it carries (e.g. a pipeline's attached triggers). Chainable.
+   */
   add(resource: Synthesizable, options: AddOptions = {}): this {
-    const base = options.fileName ?? resource.identifier;
-    const fileName = base.endsWith(".yaml") ? base : `${base}.yaml`;
-    this.entries.push({ resource, fileName });
+    this.register(resource, options.fileName);
+    if (hasAttachedResources(resource)) {
+      for (const attached of resource.attachedResources()) {
+        this.register(attached);
+      }
+    }
     return this;
+  }
+
+  /** Registers a single resource, ignoring one already added by identity. */
+  private register(resource: Synthesizable, fileName?: string): void {
+    if (this.entries.some((e) => e.resource === resource)) {
+      return;
+    }
+    const base = fileName ?? resource.identifier;
+    this.entries.push({
+      resource,
+      fileName: base.endsWith(".yaml") ? base : `${base}.yaml`,
+    });
   }
 
   /**

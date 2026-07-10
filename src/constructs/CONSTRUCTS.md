@@ -23,7 +23,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 
 | Construct | File | Status |
 | --- | --- | --- |
-| `Pipeline` | `pipeline.ts` | ✅ |
+| `Pipeline` | `pipeline/pipeline.ts` | ✅ |
 | `Stage` (abstract base) | `stage.ts` | ✅ |
 | `Step` (abstract base) | `step.ts` | ✅ |
 | `ParallelGroup` | `parallel-group.ts` | ✅ |
@@ -57,7 +57,7 @@ expose `toJson()` / `validate()` / `synth()`.
 
 | Construct | File | Status |
 | --- | --- | --- |
-| `GithubPushTrigger` (GitHub `Webhook`/`Push`) | `github-push-trigger.ts` | ✅ |
+| `GithubPushTrigger` (GitHub `Webhook`/`Push`) | `pipeline/triggers/github-push-trigger.ts` | ✅ |
 
 ## Stages (12)
 

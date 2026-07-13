@@ -4,7 +4,7 @@ import {
   Pipeline,
   type PipelineChild,
   ShellScriptStep,
-} from "../../src/constructs/index.js";
+} from "../../src/constructs/level-1/index.js";
 import { expectValidPipeline, validateAgainstSchema } from "./harness-schema.js";
 
 /**

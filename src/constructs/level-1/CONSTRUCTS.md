@@ -1,6 +1,6 @@
 # Constructs inventory
 
-Tracks the TypeScript construct tree under `src/constructs/` that synthesizes
+Tracks the TypeScript construct tree under `src/constructs/level-1/` that synthesizes
 Harness pipeline YAML, modeled on the [v0 pipeline schema][schema]. Every
 construct exposes `toJson()` + `validate()`; `Pipeline` also has `synth()`
 (validate + `yaml.stringify`).

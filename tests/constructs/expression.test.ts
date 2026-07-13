@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Expr } from "../../src/constructs/index.js";
+import { Expr } from "../../src/constructs/level-1/index.js";
 
 /**
  * These assertions pin the exact `<+...>` tokens that hand-written pipelines

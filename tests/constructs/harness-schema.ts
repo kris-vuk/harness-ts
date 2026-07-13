@@ -1,7 +1,7 @@
 import { Ajv, type ValidateFunction } from "ajv";
 import { expect } from "vitest";
 import schema from "../../src/constructs/schema.json";
-import type { Pipeline } from "../../src/constructs/index.js";
+import type { Pipeline } from "../../src/constructs/level-1/index.js";
 
 /**
  * Compiled Harness pipeline validator, built once and reused across all tests.

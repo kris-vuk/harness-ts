@@ -51,6 +51,13 @@ export class Expression {
   }
 }
 
+/**
+ * A field that accepts either a plain string or a typed {@link Expression}.
+ * Since `Expression.toJSON()` renders the raw `<+...>` token, an `Expression`
+ * can be assigned directly — no `${...}` coercion — and serializes correctly.
+ */
+export type ExprString = string | Expression;
+
 /** Options for a `<+input>` runtime input expression. */
 export interface InputExprOptions {
   /**

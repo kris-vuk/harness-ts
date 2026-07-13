@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Pipeline, PipelineGitConfig } from "../../src/constructs/index.js";
+import { Pipeline, PipelineGitConfig } from "../../src/constructs/level-1/index.js";
 
 function samplePipeline(): Pipeline {
   return new Pipeline({ name: "My Pipeline", projectIdentifier: "testproj" });

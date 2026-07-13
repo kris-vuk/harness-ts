@@ -1,17 +1,19 @@
 import { readFileSync } from "node:fs";
 import { Step, type StepProps } from "./step.js";
+import type { ExprString } from "./expression.js";
 
 /** Shells supported by the ShellScript step per the v0 schema. */
 export type Shell = "Bash" | "PowerShell";
 
 /**
  * An environment or output variable of a ShellScript step (`NGVariable`).
- * `Secret` values are resolved from the Harness secret manager.
+ * `Secret` values are resolved from the Harness secret manager. `value` accepts
+ * a plain string or a typed {@link Expression}, so no `${...}` coercion is needed.
  */
 export interface ShellScriptVariable {
   name: string;
   type: "String" | "Secret" | "Number";
-  value: string;
+  value: ExprString;
 }
 
 export interface ShellScriptStepProps extends StepProps {

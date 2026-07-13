@@ -19,14 +19,17 @@ const pipeline = new Pipeline({
   projectIdentifier: "default_project",
 });
 
-pipeline.addStage(
-  new CustomStage({ name: "Build" }).addStep(
-    new ShellScriptStep({
-      name: "Build",
-      script: 'echo "Building..."',
-    }),
-  ),
-);
+// A deployment progression: pre-prod, then each prod region in turn.
+for (const stage of ["alpha", "gamma", "prod_dub", "prod_pdx", "prod_iad"]) {
+  pipeline.addStage(
+    new CustomStage({ name: stage }).addStep(
+      new ShellScriptStep({
+        name: "Deploy",
+        script: `echo "Deploying to ${stage}..."`,
+      }),
+    ),
+  );
+}
 
 console.log(pipeline.synth()); // prints Harness pipeline YAML
 ```
@@ -70,6 +73,25 @@ Identifiers are auto-derived from the display `name` (`"My Stage"` → `"My_Stag
 unless you pass an explicit `identifier`. Validation enforces the Harness
 identifier rules and rejects duplicate identifiers within a scope.
 
+## Construct levels (L1 / L2 / L3)
+
+Constructs are organized into three levels of abstraction. **This library
+currently ships L1 only** — the levels are defined up front so higher layers
+are built on a deliberate foundation.
+
+| Level | What it is | User thinks in terms of |
+|---|---|---|
+| **L1** | A 1:1 typed mirror of the Harness schema — one construct per schema type, fields named as the schema names them, no opinions. Anything expressible in raw YAML is expressible here, and nothing more. | the Harness schema |
+| **L2** | One construct per schema type, with opinions: sensible defaults, inferred fields, helper methods. Renders through the L1 underneath. | the resource |
+| **L3** | One construct per *goal*, expanding into several resources wired together correctly — the user states intent, the construct encodes the recipe. | the outcome |
+
+Dependency direction is strictly downward (L3 → L2 → L1, never the reverse),
+and every higher level keeps an escape hatch to the level below, so an
+unmodeled schema corner never forces a return to hand-written YAML. The full
+definitions and rules live in [`src/constructs/LEVELS.md`](src/constructs/LEVELS.md).
+
+Everything documented below is L1.
+
 ## Stages
 
 | Construct | Type | Purpose |
@@ -86,8 +108,8 @@ Every stage takes shared `StageProps` (`name`, `identifier?`, `description?`,
 ### Deployment stage
 
 ```ts
-import { DeploymentStage } from "./src/constructs/deployment-stage.js";
-import { K8sRollingDeployStep } from "./src/constructs/kubernetes-steps.js";
+import { DeploymentStage } from "./src/constructs/level-1/deployment-stage.js";
+import { K8sRollingDeployStep } from "./src/constructs/level-1/kubernetes-steps.js";
 
 new DeploymentStage({
   name: "Deploy Prod",
@@ -103,8 +125,8 @@ new DeploymentStage({
 ### CI stage
 
 ```ts
-import { CIStage } from "./src/constructs/ci-stage.js";
-import { RunStep } from "./src/constructs/ci-steps.js";
+import { CIStage } from "./src/constructs/level-1/ci-stage.js";
+import { RunStep } from "./src/constructs/level-1/ci-steps.js";
 
 // Harness Cloud (hosted machines)
 new CIStage({
@@ -159,7 +181,7 @@ type-specific `spec`.
 
 **Terraform** — `TerraformPlanStep`, `TerraformApplyStep`, `TerraformDestroyStep`, `TerraformRollbackStep`
 
-See [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md) for the full
+See [`src/constructs/level-1/CONSTRUCTS.md`](src/constructs/level-1/CONSTRUCTS.md) for the full
 inventory, including step families not yet implemented.
 
 ### ShellScriptStep
@@ -187,7 +209,7 @@ new WaitStep({ name: "Bake", duration: "12h" });   // e.g. "30m", "1d"
 import {
   TerraformPlanStep,
   TerraformApplyStep,
-} from "./src/constructs/terraform-steps.js";
+} from "./src/constructs/level-1/terraform-steps.js";
 
 // Plan (stores an encrypted plan for a later Apply)
 new TerraformPlanStep({
@@ -235,8 +257,8 @@ a `render*` function) rather than loose records, so they validate at the type le
 ## Grouping steps
 
 ```ts
-import { StepGroup } from "./src/constructs/step-group.js";
-import { ParallelGroup } from "./src/constructs/parallel-group.js";
+import { StepGroup } from "./src/constructs/level-1/step-group.js";
+import { ParallelGroup } from "./src/constructs/level-1/parallel-group.js";
 
 // Sequential, named group (has its own identifier; can carry when/failureStrategies)
 new StepGroup({
@@ -264,7 +286,7 @@ starts the pipeline when a push matches the watched branch. Attach it with
 identifiers into the trigger:
 
 ```ts
-import { GithubPushTrigger } from "./src/constructs/pipeline/triggers/github-push-trigger.js";
+import { GithubPushTrigger } from "./src/constructs/level-1/pipeline/triggers/github-push-trigger.js";
 
 pipeline.addTrigger(
   new GithubPushTrigger({
@@ -350,7 +372,7 @@ Git-sync metadata (`storeType: REMOTE`, connector, repo, branch, file path) is
 that *references* a pipeline and renders that entity-level "git details" block:
 
 ```ts
-import { PipelineGitConfig } from "./src/constructs/pipeline/pipeline-git-config.js";
+import { PipelineGitConfig } from "./src/constructs/level-1/pipeline/pipeline-git-config.js";
 
 const gitConfig = new PipelineGitConfig({
   pipeline,                             // supplies the pipeline identifier
@@ -399,11 +421,12 @@ npx tsx example.ts  # run the sample pipeline
 
 ## Status
 
-This is an evolving, schema-driven construct tree. Coverage so far:
+This is an evolving, schema-driven construct tree, currently
+[L1-only](src/constructs/LEVELS.md). Coverage so far:
 **4 of 12 stage types** and a growing set of step families (general, approval,
 Kubernetes, AWS CDK, CI, Terraform, feature flag). The remaining step families
 (Helm, ECS, ASG, Azure, GCP, Lambda/SAM, GitOps, STO scanners, and more) are
-tracked in [`src/constructs/CONSTRUCTS.md`](src/constructs/CONSTRUCTS.md).
+tracked in [`src/constructs/level-1/CONSTRUCTS.md`](src/constructs/level-1/CONSTRUCTS.md).
 
 Known gaps:
 

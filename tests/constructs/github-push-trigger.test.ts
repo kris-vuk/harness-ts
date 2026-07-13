@@ -1,6 +1,6 @@
 import { parse } from "yaml";
 import { describe, expect, test } from "vitest";
-import { GithubPushTrigger, Pipeline } from "../../src/constructs/index.js";
+import { GithubPushTrigger, Pipeline } from "../../src/constructs/level-1/index.js";
 
 function samplePipeline(): Pipeline {
   return new Pipeline({

@@ -1,13 +1,18 @@
+import type { ExprString } from "./expression.js";
+
 /**
  * A typed pipeline/stage/step-group variable (`NGVariable`). Harness models
  * three concrete variants (`StringNGVariable`, `SecretNGVariable`,
  * `NumberNGVariable`); this discriminated union captures all three. `Secret`
  * values are references into the Harness secret manager; `Number` values may
  * be a literal or a runtime expression string.
+ *
+ * `String`/`Secret` values accept a plain string or a typed {@link Expression}
+ * ({@link ExprString}), so `value: Expr.secret("x")` needs no `${...}` wrapping.
  */
 export type NGVariable =
-  | { name: string; type: "String"; value: string; default?: string; description?: string; required?: boolean }
-  | { name: string; type: "Secret"; value: string; default?: string; description?: string; required?: boolean }
+  | { name: string; type: "String"; value: ExprString; default?: ExprString; description?: string; required?: boolean }
+  | { name: string; type: "Secret"; value: ExprString; default?: ExprString; description?: string; required?: boolean }
   | {
       name: string;
       type: "Number";

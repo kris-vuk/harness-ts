@@ -1,4 +1,4 @@
-import { isValidIdentifier, toIdentifier } from "../identifier.js";
+import { isValidIdentifier, toIdentifier } from "../../identifier.js";
 import type { ExecutionItem } from "./stage.js";
 import { type StepWhen, renderStepWhen } from "./when-condition.js";
 import {

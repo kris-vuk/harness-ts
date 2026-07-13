@@ -1,54 +1,5 @@
-import { isValidIdentifier } from "../../identifier.js";
-import type { Pipeline } from "./pipeline.js";
-
-/**
- * How Harness fetches the branch when creating/importing the remote pipeline.
- * "Branch" tracks the tip of {@link PipelineGitConfigProps.branch}; "Commit"
- * pins a specific `commitId`.
- */
-export type PipelineGitFetchType = "Branch" | "Commit";
-
-/**
- * Properties for the Git configuration of a {@link Pipeline}'s **own
- * definition** — i.e. the repo that stores the pipeline YAML, not any
- * application/source repo the pipeline builds or deploys.
- *
- * In Harness this is "Git Experience": a pipeline stored with
- * `storeType: REMOTE` lives as a YAML file in a git repo, and Harness keeps its
- * in-account copy in sync with that file. This metadata is **not** part of the
- * v0 pipeline document ({@link Pipeline.toJson}); it rides alongside the YAML as
- * entity/API-level "git details" when the pipeline is created or imported. So,
- * like a trigger, this is a separate resource that *references* a pipeline
- * rather than something embedded in the pipeline document.
- */
-export interface PipelineGitConfigProps {
-  /** Pipeline whose definition lives in git. Supplies its identifier. */
-  pipeline: Pipeline;
-  /** Existing Git connector ref pointing at the pipeline-definition repo. */
-  connectorRef: string;
-  /** Repository holding the pipeline YAML, e.g. "my-org/pipeline-defs". */
-  repoName: string;
-  /** Branch the pipeline YAML is read from / written to, e.g. "main". */
-  branch: string;
-  /**
-   * Path to the pipeline YAML within the repo, e.g.
-   * ".harness/my_pipeline.yaml".
-   */
-  filePath: string;
-  /**
-   * Whether Harness fetches by branch tip or a pinned commit. Defaults to
-   * "Branch" — the mode that lets the in-account copy update when the repo
-   * updates.
-   */
-  gitFetchType?: PipelineGitFetchType;
-  /** Commit to pin when `gitFetchType` is "Commit". */
-  commitId?: string;
-  /**
-   * Base branch to open the file against (used by some create/import flows).
-   * Optional; defaults to {@link branch} on the Harness side when omitted.
-   */
-  baseBranch?: string;
-}
+import { isValidIdentifier } from "../../../identifier.js";
+import type { PipelineGitConfigProps, PipelineGitFetchType } from "./types.js";
 
 /**
  * Git configuration for a {@link Pipeline}'s own definition (Harness "Git

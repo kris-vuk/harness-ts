@@ -1,6 +1,7 @@
 import { stringify } from "yaml";
-import { isValidIdentifier, toIdentifier } from "../../../identifier.js";
-import type { Pipeline, RunTrigger } from "../pipeline.js";
+import { isValidIdentifier, toIdentifier } from "../../../../identifier.js";
+import type { Pipeline } from "../pipeline.js";
+import type { RunTrigger } from "../types.js";
 
 /**
  * Operators a branch/payload condition can use (`TriggerEventDataCondition`).
